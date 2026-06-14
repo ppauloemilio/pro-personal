@@ -11,7 +11,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Dummy DATABASE_URL for build time (static generation needs it)
+# Dummy DATABASE_URL for build time
 ENV DATABASE_URL="file:./dev.db"
 
 RUN npx prisma generate
@@ -29,18 +29,8 @@ ENV HOSTNAME="0.0.0.0"
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy public assets
-COPY --from=builder /app/public ./public
-
-# Copy Prisma schema + engine for runtime migrations
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-
-# Copy standalone server output
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Copy everything from builder
+COPY --from=builder /app ./
 
 # Create persistent data directory
 RUN mkdir -p /data && chown nextjs:nodejs /data
@@ -51,5 +41,5 @@ EXPOSE 80
 
 ENV DATABASE_URL="file:/data/prod.db"
 
-# Initialize DB on first run, then start server
-CMD ["sh", "-c", "node ./node_modules/prisma/build/index.js db push --skip-generate && node server.js"]
+# Use local prisma (v6), not npx which downloads v7
+CMD ["sh", "-c", "./node_modules/.bin/prisma db push && node server.js"]
