@@ -1,7 +1,8 @@
-# Stage 1: Install ALL dependencies (including build tools)
+# Stage 1: Install ALL dependencies
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
+COPY prisma ./prisma
 RUN npm ci
 
 # Stage 2: Build
@@ -10,7 +11,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Set a dummy DATABASE_URL for build time (SQLite - static pages need it)
+# Dummy DATABASE_URL for build time (static generation needs it)
 ENV DATABASE_URL="file:./dev.db"
 
 RUN npx prisma generate
