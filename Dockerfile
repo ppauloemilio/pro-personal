@@ -1,45 +1,17 @@
-# Stage 1: Install ALL dependencies
-FROM node:20-alpine AS deps
+FROM node:20-alpine
 WORKDIR /app
-COPY package.json package-lock.json ./
-COPY prisma ./prisma
-RUN npm ci
-
-# Stage 2: Build
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Dummy DATABASE_URL for build time
-ENV DATABASE_URL="file:./dev.db"
-
-RUN npx prisma generate
-RUN npm run build
-
-# Stage 3: Production runner
-FROM node:20-alpine AS runner
-WORKDIR /app
-
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
+ENV DATABASE_URL="file:/data/prod.db"
 ENV PORT=80
 ENV HOSTNAME="0.0.0.0"
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN npm install
+RUN npx prisma generate
+RUN npm run build
 
-# Copy everything from builder
-COPY --from=builder /app ./
-
-# Create persistent data directory
-RUN mkdir -p /data && chown nextjs:nodejs /data
-
-USER nextjs
+RUN mkdir -p /data
 
 EXPOSE 80
 
-ENV DATABASE_URL="file:/data/prod.db"
-
-# Use local prisma (v6), not npx which downloads v7
-CMD ["sh", "-c", "./node_modules/.bin/prisma db push && node server.js"]
+CMD ["sh", "-c", "./node_modules/.bin/prisma db push && npx next start -p 80 -H 0.0.0.0"]
