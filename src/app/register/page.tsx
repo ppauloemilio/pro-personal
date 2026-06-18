@@ -10,13 +10,20 @@ export default async function RegisterPage({
   searchParams: Promise<{ role?: string; error?: string }>;
 }) {
   const params = await searchParams;
-  const defaultRole = params.role === "PERSONAL" ? "PERSONAL" : "ALUNO";
+  const allowAdmin = params.role === "ADMIN";
+  const defaultRole = allowAdmin
+    ? "ADMIN"
+    : params.role === "PERSONAL"
+      ? "PERSONAL"
+      : "ALUNO";
   const errorMsg =
     params.error === "exists"
       ? "E-mail já cadastrado."
       : params.error === "missing"
         ? "Preencha todos os campos."
-        : null;
+        : params.error === "admin_exists"
+          ? "Já existe uma conta de administrador."
+          : null;
 
   return (
     <div className="flex min-h-dvh items-center justify-center p-4">
@@ -43,13 +50,26 @@ export default async function RegisterPage({
             <label className="mb-1 block text-xs text-slate-400">Senha</label>
             <input name="password" type="password" required minLength={6} className="w-full" />
           </div>
-          <div>
-            <label className="mb-1 block text-xs text-slate-400">Tipo de conta</label>
-            <select name="role" defaultValue={defaultRole} className="w-full">
-              <option value="PERSONAL">Personal trainer</option>
-              <option value="ALUNO">Aluno</option>
-            </select>
-          </div>
+          {allowAdmin && (
+            <div>
+              <label className="mb-1 block text-xs text-slate-400">Tipo de conta</label>
+              <select name="role" defaultValue="ADMIN" className="w-full">
+                <option value="ADMIN">Administrador</option>
+                <option value="PERSONAL">Personal trainer</option>
+                <option value="ALUNO">Aluno</option>
+              </select>
+              <p className="mt-1 text-xs text-amber-400">⚠️ Modo de criação de administrador</p>
+            </div>
+          )}
+          {!allowAdmin && (
+            <div>
+              <label className="mb-1 block text-xs text-slate-400">Tipo de conta</label>
+              <select name="role" defaultValue={defaultRole} className="w-full">
+                <option value="PERSONAL">Personal trainer</option>
+                <option value="ALUNO">Aluno</option>
+              </select>
+            </div>
+          )}
           <Button type="submit" className="w-full">
             Cadastrar
           </Button>

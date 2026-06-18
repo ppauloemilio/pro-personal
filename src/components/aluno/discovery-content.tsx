@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, User } from "lucide-react";
+import { MapPin, User, CheckCircle } from "lucide-react";
 import { requestVinculoDiscoveryFormAction } from "@/lib/actions";
 import type { UserRole } from "@prisma/client";
 
@@ -17,9 +17,11 @@ type DiscoveryFilters = {
 export async function DiscoveryContent({
   filters,
   sessionRole,
+  vinculoSent,
 }: {
   filters: DiscoveryFilters;
   sessionRole?: UserRole | null;
+  vinculoSent?: boolean;
 }) {
   const categories = await prisma.category.findMany({ orderBy: { name: "asc" } });
   const personals = await getDiscoveryPersonals(filters);
@@ -34,6 +36,18 @@ export async function DiscoveryContent({
           Busque por especialidade e cidade. Solicite vínculo para começar.
         </p>
       </div>
+
+      {vinculoSent && (
+        <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+          <CheckCircle className="h-5 w-5 flex-shrink-0 text-emerald-400" />
+          <div>
+            <p className="font-medium text-emerald-300">Solicitação de vínculo enviada com sucesso!</p>
+            <p className="text-sm text-emerald-400/70">
+              Aguarde o personal aceitar sua solicitação. Você será notificado.
+            </p>
+          </div>
+        </div>
+      )}
 
       <form
         method="get"

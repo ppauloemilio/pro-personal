@@ -43,6 +43,8 @@ type BookingMonthCalendarProps = {
   basePath: string;
   legend: LegendItem[];
   startOnCurrentMonth?: boolean;
+  /** When true, all days are clickable (not just those with bookings) */
+  allDaysClickable?: boolean;
 };
 
 export function BookingMonthCalendar({
@@ -51,6 +53,7 @@ export function BookingMonthCalendar({
   basePath,
   legend,
   startOnCurrentMonth = false,
+  allDaysClickable = false,
 }: BookingMonthCalendarProps) {
   const router = useRouter();
 
@@ -113,6 +116,7 @@ export function BookingMonthCalendar({
           const inMonth = isSameMonth(day, month);
           const dayBookings = bookingsByDate[key] || [];
           const hasBookings = dayBookings.length > 0;
+          const isClickable = allDaysClickable ? inMonth : (inMonth && hasBookings);
           const isSelected = selectedDate
             ? isSameDay(day, parseISO(selectedDate))
             : false;
@@ -121,12 +125,13 @@ export function BookingMonthCalendar({
             <button
               key={key}
               type="button"
-              disabled={!inMonth || !hasBookings}
-              onClick={() => hasBookings && selectDate(key)}
+              disabled={!isClickable}
+              onClick={() => isClickable && selectDate(key)}
               className={cn(
                 "flex min-h-[88px] flex-col rounded-lg border p-1.5 text-left transition",
                 !inMonth && "border-transparent opacity-30",
-                inMonth && !hasBookings && "border-transparent text-slate-600",
+                inMonth && !hasBookings && !allDaysClickable && "border-transparent text-slate-600",
+                inMonth && !hasBookings && allDaysClickable && "border-surface-border/50 text-slate-500 hover:border-brand-500/30 hover:bg-surface-elevated/20",
                 inMonth &&
                   hasBookings &&
                   "border-surface-border bg-surface-elevated/40 hover:border-brand-500/40",

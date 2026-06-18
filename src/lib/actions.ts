@@ -43,11 +43,23 @@ export async function registerAction(formData: FormData) {
   const role = String(formData.get("role") || "ALUNO") as UserRole;
 
   if (!email || !password || !name) {
-    redirect("/register?error=missing");
+    const roleParam = role === "ADMIN" ? "?role=ADMIN&" : "?";
+    redirect(`/register${roleParam}error=missing`);
+  }
+
+  // Only allow ADMIN role if no admin exists yet (first-admin safety)
+  if (role === "ADMIN") {
+    const adminCount = await prisma.user.count({ where: { role: "ADMIN" } });
+    if (adminCount > 0) {
+      redirect("/register?role=ADMIN&error=admin_exists");
+    }
   }
 
   const exists = await prisma.user.findUnique({ where: { email } });
-  if (exists) redirect("/register?error=exists");
+  if (exists) {
+    const roleParam = role === "ADMIN" ? "?role=ADMIN&" : "?";
+    redirect(`/register${roleParam}error=exists`);
+  }
 
   const passwordHash = await hashPassword(password);
   const user = await prisma.user.create({
@@ -56,24 +68,26 @@ export async function registerAction(formData: FormData) {
       passwordHash,
       name,
       role,
-      ...(role === "PERSONAL"
-        ? {
-            personalProfile: {
-              create: {
-                publicSlug: slugify(name) + "-" + Date.now().toString(36),
-                inviteCode: generateInviteCode(),
-                isPublic: true,
+      ...(role === "ADMIN"
+        ? {}
+        : role === "PERSONAL"
+          ? {
+              personalProfile: {
+                create: {
+                  publicSlug: slugify(name) + "-" + Date.now().toString(36),
+                  inviteCode: generateInviteCode(),
+                  isPublic: true,
+                },
               },
-            },
-            subscription: {
-              create: {
-                status: "TRIAL",
-                trialEndsAt: getTrialEndDate(),
-                planLabel: "Trial",
+              subscription: {
+                create: {
+                  status: "TRIAL",
+                  trialEndsAt: getTrialEndDate(),
+                  planLabel: "Trial",
+                },
               },
-            },
-          }
-        : { studentProfile: { create: {} } }),
+            }
+          : { studentProfile: { create: {} } }),
     },
   });
 
@@ -886,6 +900,132 @@ export async function rejectCategoryFormAction(formData: FormData): Promise<void
   if (requestId) await rejectCategoryRequestAction(requestId, reason);
 }
 
+export async function personalCreateBookingAction(
+  vinculoId: string,
+  slot: {
+    startAt: string;
+    endAt: string;
+    locationId: string;
+    locationName: string;
+    locationAddress: string;
+    locationMapUrl?: string;
+  }
+) {
+  const session = await getSession();
+  if (!session || session.role !== "PERSONAL") throw new Error("FORBIDDEN");
+  await assertPersonalCanWrite(session.id);
+
+  const vinculo = await prisma.vinculo.findFirst({
+    where: { id: vinculoId, personalId: session.id, status: "ATIVO" },
+  });
+  if (!vinculo) return { error: "Vínculo inválido." };
+
+  const booking = await prisma.booking.create({
+    data: {
+      vinculoId,
+      locationId: slot.locationId,
+      startAt: new Date(slot.startAt),
+      endAt: new Date(slot.endAt),
+      status: "CONFIRMADA",
+      locationName: slot.locationName,
+      locationAddress: slot.locationAddress,
+      locationMapUrl: slot.locationMapUrl || null,
+    },
+  });
+
+  await notifyVinculo(
+    vinculo.studentId,
+    vinculoId,
+    "BOOKING_APPROVED",
+    "Aula agendada",
+    `Seu personal agendou aula para ${format(booking.startAt, "dd/MM 'às' HH:mm")} em ${slot.locationName}.`,
+    bookingDateLink(booking.startAt, "aluno")
+  );
+
+  revalidateAll();
+  return { success: true, bookingId: booking.id };
+}
+
+export async function personalBlockSlotAction(
+  startAt: string,
+  endAt: string,
+  reason?: string
+) {
+  const session = await getSession();
+  if (!session || session.role !== "PERSONAL") throw new Error("FORBIDDEN");
+  await assertPersonalCanWrite(session.id);
+
+  const profile = await prisma.personalProfile.findUnique({
+    where: { userId: session.id },
+  });
+  if (!profile) return { error: "Perfil não encontrado." };
+
+  await prisma.scheduleBlock.create({
+    data: {
+      personalId: profile.id,
+      startAt: new Date(startAt),
+      endAt: new Date(endAt),
+      reason: reason || "Horário bloqueado",
+    },
+  });
+
+  revalidateAll();
+  return { success: true };
+}
+
+export async function removeScheduleBlockAction(blockId: string) {
+  const session = await getSession();
+  if (!session || session.role !== "PERSONAL") throw new Error("FORBIDDEN");
+  await assertPersonalCanWrite(session.id);
+
+  const profile = await prisma.personalProfile.findUnique({
+    where: { userId: session.id },
+  });
+  if (!profile) return { error: "Perfil não encontrado." };
+
+  const block = await prisma.scheduleBlock.findFirst({
+    where: { id: blockId, personalId: profile.id },
+  });
+  if (!block) return { error: "Bloqueio não encontrado." };
+
+  await prisma.scheduleBlock.delete({ where: { id: blockId } });
+
+  revalidateAll();
+  return { success: true };
+}
+
+export async function personalCreateBookingFormAction(formData: FormData): Promise<void> {
+  const vinculoId = String(formData.get("vinculoId") || "");
+  if (!vinculoId) return;
+  const startAt = String(formData.get("startAt"));
+  const result = await personalCreateBookingAction(vinculoId, {
+    startAt,
+    endAt: String(formData.get("endAt")),
+    locationId: String(formData.get("locationId")),
+    locationName: String(formData.get("locationName")),
+    locationAddress: String(formData.get("locationAddress")),
+    locationMapUrl: String(formData.get("locationMapUrl") || "") || undefined,
+  });
+  if (result?.success && startAt) {
+    redirect(bookingDateLink(new Date(startAt), "personal"));
+  }
+}
+
+export async function personalBlockSlotFormAction(formData: FormData): Promise<void> {
+  const startAt = String(formData.get("startAt") || "");
+  const endAt = String(formData.get("endAt") || "");
+  const reason = String(formData.get("reason") || "") || undefined;
+  if (startAt && endAt) {
+    await personalBlockSlotAction(startAt, endAt, reason);
+  }
+  redirect(`/personal/agenda?date=${format(new Date(startAt), "yyyy-MM-dd")}`);
+}
+
+export async function removeScheduleBlockFormAction(formData: FormData): Promise<void> {
+  const blockId = String(formData.get("blockId") || "");
+  if (blockId) await removeScheduleBlockAction(blockId);
+}
+
 export async function requestVinculoInviteFormAction(formData: FormData): Promise<void> {
   const code = String(formData.get("code") || "");
   if (code) await requestVinculoByInviteAction(code);
@@ -896,6 +1036,7 @@ export async function requestVinculoDiscoveryFormAction(
 ): Promise<void> {
   const personalUserId = String(formData.get("personalUserId") || "");
   if (personalUserId) await requestVinculoDiscoveryAction(personalUserId);
+  redirect("/aluno/buscar-personal?vinculo=sent");
 }
 
 export async function createBookingFormAction(formData: FormData): Promise<void> {
