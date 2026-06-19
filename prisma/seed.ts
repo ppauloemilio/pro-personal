@@ -165,35 +165,44 @@ async function main() {
       });
 
       // Availability rules (only if locations were just created)
-      await prisma.availabilityRule.createMany({
-        data: [
-          {
-            personalId: personal.personalProfile.id,
-            locationId: loc1.id,
-            dayOfWeek: 2,
-            startTime: "08:00",
-            endTime: "12:00",
-            slotMinutes: 60,
+      for (const rule of [
+        {
+          personalId: personal.personalProfile.id,
+          locationId: loc1.id,
+          dayOfWeek: 2,
+          startTime: "08:00",
+          endTime: "12:00",
+          slotMinutes: 60,
+        },
+        {
+          personalId: personal.personalProfile.id,
+          locationId: loc1.id,
+          dayOfWeek: 4,
+          startTime: "14:00",
+          endTime: "18:00",
+          slotMinutes: 60,
+        },
+        {
+          personalId: personal.personalProfile.id,
+          locationId: loc2.id,
+          dayOfWeek: 3,
+          startTime: "07:00",
+          endTime: "11:00",
+          slotMinutes: 60,
+        },
+      ]) {
+        const exists = await prisma.availabilityRule.findFirst({
+          where: {
+            personalId: rule.personalId,
+            locationId: rule.locationId,
+            dayOfWeek: rule.dayOfWeek,
+            startTime: rule.startTime,
           },
-          {
-            personalId: personal.personalProfile.id,
-            locationId: loc1.id,
-            dayOfWeek: 4,
-            startTime: "14:00",
-            endTime: "18:00",
-            slotMinutes: 60,
-          },
-          {
-            personalId: personal.personalProfile.id,
-            locationId: loc2.id,
-            dayOfWeek: 3,
-            startTime: "07:00",
-            endTime: "11:00",
-            slotMinutes: 60,
-          },
-        ],
-        skipDuplicates: true,
-      });
+        });
+        if (!exists) {
+          await prisma.availabilityRule.create({ data: rule });
+        }
+      }
     }
   }
 
