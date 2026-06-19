@@ -12,6 +12,10 @@ RUN npm run build
 
 RUN mkdir -p /data && chmod 777 /data
 
+# Entrypoint script for reliable startup
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 EXPOSE 80
 
-CMD ["sh", "-c", "./node_modules/.bin/prisma db push --skip-generate && npx tsx prisma/seed.ts && npx next start -p 80 -H 0.0.0.0"]
+ENTRYPOINT ["/entrypoint.sh"]
