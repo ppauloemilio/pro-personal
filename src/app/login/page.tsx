@@ -50,10 +50,6 @@ export default async function LoginPage({
             Cadastre-se
           </Link>
         </p>
-        <div className="rounded-xl bg-surface-elevated/50 p-3 text-xs text-slate-500">
-          <p className="font-medium text-slate-400">Demo (senha: demo123)</p>
-          <p>personal@demo.com · aluno@demo.com · admin@propersonal.com</p>
-        </div>
       </Card>
     </div>
   );
