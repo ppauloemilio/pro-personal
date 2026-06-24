@@ -1470,8 +1470,221 @@ export async function markAllNotificationsReadAction() {
   await prisma.notification.updateMany({
     where: { userId: session.id, read: false },
     data: { read: true },
+  },
+
+  );
+
+  revalidateAll();
+  return { success: true };
+}
+
+// ============================
+// DESVINCULAR COM MOTIVO
+// ============================
+
+export async function desvincularAction(vinculoId: string, reason: string) {
+  const session = await getSession();
+  if (!session) throw new Error("UNAUTHORIZED");
+  if (!reason.trim()) return { error: "Motivo obrigatório." };
+
+  const vinculo = await prisma.vinculo.findUnique({ where: { id: vinculoId } });
+  if (!vinculo) return { error: "Vínculo não encontrado." };
+
+  const isPersonal = session.role === "PERSONAL" && vinculo.personalId === session.id;
+  const isAluno = session.role === "ALUNO" && vinculo.studentId === session.id;
+  if (!isPersonal && !isAluno) return { error: "Sem permissão." };
+
+  if (vinculo.status !== "ATIVO") return { error: "Vínculo não está ativo." };
+
+  await prisma.vinculo.update({
+    where: { id: vinculoId },
+    data: {
+      status: "ENCERRADO",
+      endedAt: new Date(),
+      endReason: reason.trim(),
+      endedBy: session.id,
+    },
+  });
+
+  const targetId = isPersonal ? vinculo.studentId : vinculo.personalId;
+  await notify(
+    targetId,
+    "SYSTEM",
+    "Vínculo encerrado",
+    `O vínculo foi encerrado. Motivo: ${reason.trim()}`,
+    isPersonal ? "/aluno" : "/personal/alunos"
+  );
+
+  revalidateAll();
+  return { success: true };
+}
+
+export async function desvincularFormAction(formData: FormData): Promise<void> {
+  const vinculoId = String(formData.get("vinculoId") || "");
+  const reason = String(formData.get("reason") || "");
+  await desvincularAction(vinculoId, reason);
+  revalidateAll();
+}
+
+// ============================
+// FOTO DE PERFIL (AVATAR)
+// ============================
+
+export async function updateAvatarAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) throw new Error("UNAUTHORIZED");
+
+  const file = formData.get("avatar") as File | null;
+  if (!file) return { error: "Arquivo não enviado." };
+
+  const bytes = await file.arrayBuffer();
+  const buffer = Buffer.from(bytes);
+  const uploadsDir = path.join(process.cwd(), "public", "uploads", "avatars");
+  await mkdir(uploadsDir, { recursive: true });
+
+  const safeName = `${session.id}-${Date.now()}.${file.name.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "") || "jpg"}`;
+  await writeFile(path.join(uploadsDir, safeName), buffer);
+
+  const avatarUrl = `/uploads/avatars/${safeName}`;
+  await prisma.user.update({
+    where: { id: session.id },
+    data: { avatarUrl },
+  });
+
+  revalidateAll();
+  return { success: true, avatarUrl };
+}
+
+// ============================
+// PORTFÓLIO DE FOTOS
+// ============================
+
+export async function uploadPortfolioPhotoAction(formData: FormData) {
+  const session = await getSession();
+  if (!session || session.role !== "PERSONAL") throw new Error("FORBIDDEN");
+  await assertPersonalCanWrite(session.id);
+
+  const profile = await prisma.personalProfile.findUnique({ where: { userId: session.id } });
+  if (!profile) return { error: "Perfil não encontrado." };
+
+  const file = formData.get("photo") as File | null;
+  const categoryId = String(formData.get("categoryId") || "");
+  const caption = String(formData.get("caption") || "").trim();
+
+  if (!file) return { error: "Foto não enviada." };
+  if (!categoryId) return { error: "Selecione uma categoria." };
+
+  const bytes = await file.arrayBuffer();
+  const buffer = Buffer.from(bytes);
+  const uploadsDir = path.join(process.cwd(), "public", "uploads", "portfolio");
+  await mkdir(uploadsDir, { recursive: true });
+
+  const safeName = `${session.id}-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+  await writeFile(path.join(uploadsDir, safeName), buffer);
+
+  const photoUrl = `/uploads/portfolio/${safeName}`;
+
+  const existingCount = await prisma.portfolioPhoto.count({
+    where: { personalId: profile.id, categoryId },
+  });
+  if (existingCount >= 5) return { error: "Máximo de 5 fotos por categoria." };
+
+  await prisma.portfolioPhoto.create({
+    data: {
+      personalId: profile.id,
+      categoryId,
+      photoUrl,
+      caption: caption || null,
+      orderIndex: existingCount,
+    },
+  });
+
+  revalidatePath("/personal/perfil");
+  return { success: true };
+}
+
+export async function deletePortfolioPhotoAction(photoId: string) {
+  const session = await getSession();
+  if (!session || session.role !== "PERSONAL") throw new Error("FORBIDDEN");
+  await assertPersonalCanWrite(session.id);
+
+  const profile = await prisma.personalProfile.findUnique({ where: { userId: session.id } });
+  if (!profile) return { error: "Perfil não encontrado." };
+
+  const photo = await prisma.portfolioPhoto.findFirst({
+    where: { id: photoId, personalId: profile.id },
+  });
+  if (!photo) return { error: "Foto não encontrada." };
+
+  await prisma.portfolioPhoto.delete({ where: { id: photoId } });
+
+  revalidatePath("/personal/perfil");
+  return { success: true };
+}
+
+export async function deletePortfolioPhotoFormAction(formData: FormData): Promise<void> {
+  const photoId = String(formData.get("photoId") || "");
+  if (photoId) await deletePortfolioPhotoAction(photoId);
+}
+
+export async function uploadPortfolioPhotoFormAction(formData: FormData): Promise<void> {
+  const result = await uploadPortfolioPhotoAction(formData);
+  if (result?.error) {
+    // Silently ignore for form action — errors handled by revalidation
+  }
+}
+
+// ============================
+// ADMIN: GERENCIAR VÍNCULOS
+// ============================
+
+export async function adminDesvincularAction(vinculoId: string) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") throw new Error("FORBIDDEN");
+
+  const vinculo = await prisma.vinculo.findUnique({ where: { id: vinculoId } });
+  if (!vinculo) return { error: "Vínculo não encontrado." };
+
+  await prisma.vinculo.update({
+    where: { id: vinculoId },
+    data: {
+      status: "ENCERRADO",
+      endedAt: new Date(),
+      endReason: "Encerrado pelo administrador",
+      endedBy: session.id,
+    },
   });
 
   revalidateAll();
   return { success: true };
+}
+
+export async function adminDesvincularFormAction(formData: FormData): Promise<void> {
+  const vinculoId = String(formData.get("vinculoId") || "");
+  if (vinculoId) await adminDesvincularAction(vinculoId);
+}
+
+// ============================
+// ADMIN: GERENCIAR LOCAIS
+// ============================
+
+export async function adminDeleteLocationAction(locationId: string) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") throw new Error("FORBIDDEN");
+
+  const location = await prisma.location.findUnique({ where: { id: locationId } });
+  if (!location) return { error: "Local não encontrado." };
+
+  const bookings = await prisma.booking.count({ where: { locationId } });
+  if (bookings > 0) return { error: "Local possui agendamentos vinculados." };
+
+  await prisma.location.delete({ where: { id: locationId } });
+
+  revalidateAll();
+  return { success: true };
+}
+
+export async function adminDeleteLocationFormAction(formData: FormData): Promise<void> {
+  const locationId = String(formData.get("locationId") || "");
+  if (locationId) await adminDeleteLocationAction(locationId);
 }

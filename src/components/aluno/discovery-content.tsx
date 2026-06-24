@@ -18,13 +18,18 @@ export async function DiscoveryContent({
   filters,
   sessionRole,
   vinculoSent,
+  linkedPersonalIds = [],
 }: {
   filters: DiscoveryFilters;
   sessionRole?: UserRole | null;
   vinculoSent?: boolean;
+  linkedPersonalIds?: string[];
 }) {
   const categories = await prisma.category.findMany({ orderBy: { name: "asc" } });
-  const personals = await getDiscoveryPersonals(filters);
+  const allPersonals = await getDiscoveryPersonals(filters);
+
+  // Filter out already-linked personals
+  const personals = allPersonals.filter((p) => !linkedPersonalIds.includes(p.userId));
 
   return (
     <div className="space-y-8">
@@ -76,8 +81,12 @@ export async function DiscoveryContent({
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {personals.map((p) => (
           <Card key={p.id} className="flex flex-col">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500/20">
-              <User className="h-7 w-7 text-brand-400" />
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500/20 overflow-hidden">
+              {p.user.avatarUrl ? (
+                <img src={p.user.avatarUrl} alt={p.user.name} className="h-14 w-14 object-cover rounded-2xl" />
+              ) : (
+                <User className="h-7 w-7 text-brand-400" />
+              )}
             </div>
             <CardTitle>{p.user.name}</CardTitle>
             <div className="mt-2 flex flex-wrap gap-1">
@@ -95,6 +104,19 @@ export async function DiscoveryContent({
                 <MapPin className="h-3.5 w-3.5" />
                 {p.locations[0].city || p.locations[0].name}
               </p>
+            )}
+            {/* Portfolio thumbnails */}
+            {p.portfolioPhotos && p.portfolioPhotos.length > 0 && (
+              <div className="mt-3 grid grid-cols-3 gap-1">
+                {p.portfolioPhotos.slice(0, 3).map((photo) => (
+                  <img
+                    key={photo.id}
+                    src={photo.photoUrl}
+                    alt={photo.caption || "Portfólio"}
+                    className="aspect-square w-full rounded-lg object-cover"
+                  />
+                ))}
+              </div>
             )}
             {sessionRole === "ALUNO" ? (
               <form action={requestVinculoDiscoveryFormAction} className="mt-4">

@@ -151,6 +151,7 @@ export async function getDiscoveryPersonals(filters?: {
       user: true,
       categories: { include: { category: true } },
       locations: true,
+      portfolioPhotos: { orderBy: { orderIndex: "asc" }, take: 3 },
     },
     take: 24,
   });

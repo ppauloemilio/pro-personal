@@ -120,6 +120,7 @@ model PersonalProfile {
   locations        Location[]
   blocks           ScheduleBlock[]
   categoryRequests CategoryRequest[]
+  portfolioPhotos  PortfolioPhoto[]
 }
 
 model StudentProfile {
@@ -138,7 +139,8 @@ model Category {
   slug      String   @unique
   createdAt DateTime @default(now())
 
-  personals PersonalCategory[]
+  personals      PersonalCategory[]
+  portfolioPhotos PortfolioPhoto[]
 }
 
 model PersonalCategory {
@@ -205,13 +207,16 @@ model ScheduleBlock {
 }
 
 model Vinculo {
-  id         String        @id @default(cuid())
-  personalId String
-  studentId  String
-  status     VinculoStatus @default(PENDENTE)
-  origem     VinculoOrigem
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  id            String        @id @default(cuid())
+  personalId    String
+  studentId     String
+  status        VinculoStatus @default(PENDENTE)
+  origem        VinculoOrigem
+  endedAt       DateTime?
+  endReason     String?
+  endedBy       String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   personal User @relation("PersonalVinculos", fields: [personalId], references: [id], onDelete: Cascade)
   student  User @relation("StudentVinculos", fields: [studentId], references: [id], onDelete: Cascade)
@@ -221,6 +226,22 @@ model Vinculo {
   conversation Conversation?
 
   @@unique([personalId, studentId])
+}
+
+model PortfolioPhoto {
+  id           String   @id @default(cuid())
+  personalId   String
+  categoryId   String
+  photoUrl     String
+  caption      String?
+  orderIndex   Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  personal PersonalProfile @relation(fields: [personalId], references: [id], onDelete: Cascade)
+  category Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([personalId, categoryId])
 }
 
 model Booking {
