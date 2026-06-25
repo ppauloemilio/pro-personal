@@ -1724,7 +1724,144 @@ export async function adminDeleteLocationAction(locationId: string) {
   return { success: true };
 }
 
+export async function adminUpdateLocationAction(
+  locationId: string,
+  data: { name: string; address: string; city?: string; mapUrl?: string; notes?: string }
+) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") throw new Error("FORBIDDEN");
+
+  const location = await prisma.location.findUnique({ where: { id: locationId } });
+  if (!location) return { error: "Local não encontrado." };
+
+  await prisma.location.update({
+    where: { id: locationId },
+    data: {
+      name: data.name,
+      address: data.address,
+      city: data.city || null,
+      mapUrl: data.mapUrl || null,
+      notes: data.notes || null,
+    },
+  });
+
+  revalidateAll();
+  return { success: true };
+}
+
+export async function adminUpdateLocationFormAction(formData: FormData): Promise<void> {
+  const locationId = String(formData.get("locationId") || "");
+  if (!locationId) return;
+  await adminUpdateLocationAction(locationId, {
+    name: String(formData.get("name") || ""),
+    address: String(formData.get("address") || ""),
+    city: String(formData.get("city") || "") || undefined,
+    mapUrl: String(formData.get("mapUrl") || "") || undefined,
+    notes: String(formData.get("notes") || "") || undefined,
+  });
+}
+
 export async function adminDeleteLocationFormAction(formData: FormData): Promise<void> {
   const locationId = String(formData.get("locationId") || "");
   if (locationId) await adminDeleteLocationAction(locationId);
+}
+
+// ============================
+// ADMIN: GERENCIAR AGENDAMENTOS
+// ============================
+
+export async function adminCancelBookingAction(bookingId: string) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") throw new Error("FORBIDDEN");
+
+  const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+  if (!booking) return { error: "Agendamento não encontrado." };
+
+  if (booking.status === "CANCELADA" || booking.status === "RECUSADA") {
+    return { error: "Agendamento já está cancelado/recusado." };
+  }
+
+  await prisma.booking.update({
+    where: { id: bookingId },
+    data: { status: "CANCELADA", cancelReason: "Cancelado pelo administrador" },
+  });
+
+  revalidateAll();
+  return { success: true };
+}
+
+export async function adminCancelBookingFormAction(formData: FormData): Promise<void> {
+  const bookingId = String(formData.get("bookingId") || "");
+  if (bookingId) await adminCancelBookingAction(bookingId);
+}
+
+export async function adminCreateBookingAction(
+  vinculoId: string,
+  slot: {
+    startAt: string;
+    endAt: string;
+    locationId: string;
+    locationName: string;
+    locationAddress: string;
+    locationMapUrl?: string;
+  }
+) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") throw new Error("FORBIDDEN");
+
+  const vinculo = await prisma.vinculo.findFirst({
+    where: { id: vinculoId, status: "ATIVO" },
+  });
+  if (!vinculo) return { error: "Vínculo inválido ou inativo." };
+
+  const booking = await prisma.booking.create({
+    data: {
+      vinculoId,
+      locationId: slot.locationId,
+      startAt: new Date(slot.startAt),
+      endAt: new Date(slot.endAt),
+      status: "CONFIRMADA",
+      locationName: slot.locationName,
+      locationAddress: slot.locationAddress,
+      locationMapUrl: slot.locationMapUrl || null,
+    },
+  });
+
+  // Notify both personal and student
+  await notifyVinculo(
+    vinculo.personalId,
+    vinculoId,
+    "BOOKING_APPROVED",
+    "Aula agendada pelo admin",
+    `O administrador agendou aula para ${format(booking.startAt, "dd/MM 'às' HH:mm")} em ${slot.locationName}.`,
+    bookingDateLink(booking.startAt, "personal")
+  );
+  await notifyVinculo(
+    vinculo.studentId,
+    vinculoId,
+    "BOOKING_APPROVED",
+    "Aula agendada pelo admin",
+    `O administrador agendou aula para ${format(booking.startAt, "dd/MM 'às' HH:mm")} em ${slot.locationName}.`,
+    bookingDateLink(booking.startAt, "aluno")
+  );
+
+  revalidateAll();
+  return { success: true, bookingId: booking.id };
+}
+
+export async function adminCreateBookingFormAction(formData: FormData): Promise<void> {
+  const vinculoId = String(formData.get("vinculoId") || "");
+  if (!vinculoId) return;
+  const startAt = String(formData.get("startAt"));
+  const result = await adminCreateBookingAction(vinculoId, {
+    startAt,
+    endAt: String(formData.get("endAt")),
+    locationId: String(formData.get("locationId")),
+    locationName: String(formData.get("locationName")),
+    locationAddress: String(formData.get("locationAddress")),
+    locationMapUrl: String(formData.get("locationMapUrl") || "") || undefined,
+  });
+  if (result?.success && startAt) {
+    redirect(`/admin/agenda?date=${format(new Date(startAt), "yyyy-MM-dd")}`);
+  }
 }

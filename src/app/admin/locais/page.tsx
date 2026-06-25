@@ -1,8 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { adminDeleteLocationFormAction } from "@/lib/actions";
+import {
+  adminDeleteLocationFormAction,
+  adminUpdateLocationFormAction,
+} from "@/lib/actions";
 import { MapPin } from "lucide-react";
+import { EditLocationForm } from "./edit-location-form";
 
 export default async function AdminLocaisPage() {
   const locations = await prisma.location.findMany({
@@ -37,16 +41,20 @@ export default async function AdminLocaisPage() {
                 </div>
                 <p className="text-sm text-slate-400">{loc.address}</p>
                 {loc.city && <p className="text-sm text-slate-500">{loc.city}</p>}
+                {loc.notes && <p className="text-sm text-slate-500">Obs: {loc.notes}</p>}
                 <p className="mt-2 text-xs text-slate-500">
                   Personal: {loc.personal.user.name} · {loc._count.bookings} agendamento(s) · {loc._count.availability} regra(s) de disponibilidade
                 </p>
               </div>
-              {loc._count.bookings === 0 && (
-                <form action={adminDeleteLocationFormAction}>
-                  <input type="hidden" name="locationId" value={loc.id} />
-                  <Button type="submit" size="sm" variant="danger">Excluir</Button>
-                </form>
-              )}
+              <div className="flex gap-2">
+                <EditLocationForm location={loc} />
+                {loc._count.bookings === 0 && (
+                  <form action={adminDeleteLocationFormAction}>
+                    <input type="hidden" name="locationId" value={loc.id} />
+                    <Button type="submit" size="sm" variant="danger">Excluir</Button>
+                  </form>
+                )}
+              </div>
             </Card>
           ))}
         </div>

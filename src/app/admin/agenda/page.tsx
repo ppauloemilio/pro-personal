@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
+import { adminCancelBookingFormAction } from "@/lib/actions";
+import { AdminCreateBookingForm } from "./admin-create-booking-form";
 
 export default async function AdminAgendaPage({
   searchParams,
@@ -51,6 +52,29 @@ export default async function AdminAgendaPage({
     orderBy: { startAt: "asc" },
   });
 
+  // Data for the create booking form
+  const vinculos = await prisma.vinculo.findMany({
+    where: {
+      status: "ATIVO",
+      ...(selectedPersonalId ? { personalId: selectedPersonalId } : {}),
+      ...(selectedStudentId ? { studentId: selectedStudentId } : {}),
+    },
+    include: {
+      personal: true,
+      student: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  // Get locations for the selected personal (or all if none selected)
+  const locations = await prisma.location.findMany({
+    where: selectedPersonalId
+      ? { personal: { userId: selectedPersonalId } }
+      : {},
+    include: { personal: { include: { user: true } } },
+    orderBy: { name: "asc" },
+  });
+
   return (
     <div className="space-y-6">
       <CardTitle>Agenda</CardTitle>
@@ -76,6 +100,14 @@ export default async function AdminAgendaPage({
       <p className="text-sm text-slate-400">
         {bookings.length} agendamento(s) em {format(dayStart, "dd/MM/yyyy")}
       </p>
+
+      {/* Create booking form */}
+      <AdminCreateBookingForm
+        vinculos={vinculos}
+        locations={locations}
+        date={date}
+        selectedPersonalId={selectedPersonalId}
+      />
 
       {bookings.length === 0 ? (
         <Card className="text-center text-slate-400">
@@ -106,6 +138,13 @@ export default async function AdminAgendaPage({
                   {b.status}
                 </Badge>
               </div>
+              {/* Cancel button for active bookings */}
+              {b.status !== "CANCELADA" && b.status !== "RECUSADA" && (
+                <form action={adminCancelBookingFormAction}>
+                  <input type="hidden" name="bookingId" value={b.id} />
+                  <Button type="submit" size="sm" variant="danger">Cancelar</Button>
+                </form>
+              )}
             </Card>
           ))}
         </div>

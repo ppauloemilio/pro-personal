@@ -21,10 +21,7 @@ export default async function LoginPage({
           <div className="mb-4 flex justify-center">
             <AppLogo size="lg" />
           </div>
-          <CardTitle>Entrar no Pro-Personal</CardTitle>
-          <p className="mt-2 text-sm text-slate-400">
-            Acesse sua conta de personal, aluno ou admin
-          </p>
+          <CardTitle>Entrar</CardTitle>
         </div>
         {errorMsg && (
           <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">
