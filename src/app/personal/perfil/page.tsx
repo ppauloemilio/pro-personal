@@ -8,6 +8,7 @@ import {
   saveLocationAction,
   saveAvailabilityAction,
   requestCategoryFormAction,
+  seedDefaultAvailabilityAction,
 } from "@/lib/actions";
 import { LocationList } from "@/components/personal/location-list";
 import { AvailabilityList } from "@/components/personal/availability-list";
@@ -206,6 +207,9 @@ export default async function PersonalPerfilPage({
 
       <Card>
         <CardTitle>Disponibilidade semanal</CardTitle>
+        <p className="mt-1 text-sm text-slate-400">
+          Padrão: Seg-Sex 8h–12h e 13h–22h. Você pode editar e adicionar horários de fim de semana.
+        </p>
         <div className="mt-4">
           <AvailabilityList
             rules={availabilityRules.map((rule) => ({
@@ -221,41 +225,18 @@ export default async function PersonalPerfilPage({
             canWrite={access.canWrite}
           />
         </div>
-        {access.canWrite && profile && profile.locations.length > 0 ? (
-          <form action={saveAvailabilityAction} className="mt-4 grid gap-3 sm:grid-cols-2">
-            <select name="locationId" required className="w-full">
-              {profile.locations.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
-            <select name="dayOfWeek" required className="w-full">
-              {DAYS.map((day, index) => (
-                <option key={day} value={index}>
-                  {day}
-                </option>
-              ))}
-            </select>
-            <input name="startTime" type="time" required defaultValue="08:00" />
-            <input name="endTime" type="time" required defaultValue="12:00" />
-            <input
-              name="slotMinutes"
-              type="number"
-              defaultValue={60}
-              min={30}
-              step={15}
-              placeholder="Duração slot (min)"
-            />
+        {access.canWrite && profile && profile.locations.length > 0 && availabilityRules.length === 0 && (
+          <form action={seedDefaultAvailabilityAction} className="mt-4">
             <Button type="submit" variant="secondary">
-              + Adicionar disponibilidade
+              Usar disponibilidade padrão (Seg-Sex 8h–12h / 13h–22h)
             </Button>
           </form>
-        ) : access.canWrite ? (
+        )}
+        {access.canWrite && profile && profile.locations.length === 0 && (
           <p className="mt-4 text-sm text-slate-400">
             Cadastre um local antes de definir disponibilidade.
           </p>
-        ) : null}
+        )}
       </Card>
     </div>
   );

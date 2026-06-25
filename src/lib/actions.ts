@@ -1624,6 +1624,57 @@ export async function uploadPortfolioPhotoFormAction(formData: FormData): Promis
 }
 
 // ============================
+// SEED DEFAULT AVAILABILITY
+// ============================
+
+export async function seedDefaultAvailabilityAction(formData: FormData): Promise<void> {
+  const session = await getSession();
+  if (!session || session.role !== "PERSONAL") throw new Error("FORBIDDEN");
+  await assertPersonalCanWrite(session.id);
+
+  const profile = await prisma.personalProfile.findUnique({
+    where: { userId: session.id },
+    include: { locations: true },
+  });
+  if (!profile || profile.locations.length === 0) return;
+
+  // Check if already has rules
+  const existing = await prisma.availabilityRule.count({
+    where: { personalId: profile.id },
+  });
+  if (existing > 0) return;
+
+  const location = profile.locations[0]; // Use first location as default
+
+  const DEFAULT_AVAILABILITY = [
+    { dayOfWeek: 1, startTime: "08:00", endTime: "12:00", slotMinutes: 60 },
+    { dayOfWeek: 1, startTime: "13:00", endTime: "22:00", slotMinutes: 60 },
+    { dayOfWeek: 2, startTime: "08:00", endTime: "12:00", slotMinutes: 60 },
+    { dayOfWeek: 2, startTime: "13:00", endTime: "22:00", slotMinutes: 60 },
+    { dayOfWeek: 3, startTime: "08:00", endTime: "12:00", slotMinutes: 60 },
+    { dayOfWeek: 3, startTime: "13:00", endTime: "22:00", slotMinutes: 60 },
+    { dayOfWeek: 4, startTime: "08:00", endTime: "12:00", slotMinutes: 60 },
+    { dayOfWeek: 4, startTime: "13:00", endTime: "22:00", slotMinutes: 60 },
+    { dayOfWeek: 5, startTime: "08:00", endTime: "12:00", slotMinutes: 60 },
+    { dayOfWeek: 5, startTime: "13:00", endTime: "22:00", slotMinutes: 60 },
+  ];
+
+  await prisma.availabilityRule.createMany({
+    data: DEFAULT_AVAILABILITY.map((rule) => ({
+      personalId: profile.id,
+      locationId: location.id,
+      dayOfWeek: rule.dayOfWeek,
+      startTime: rule.startTime,
+      endTime: rule.endTime,
+      slotMinutes: rule.slotMinutes,
+    })),
+  });
+
+  revalidatePath("/personal/perfil");
+  revalidatePath("/personal/agenda");
+}
+
+// ============================
 // ADMIN: GERENCIAR VÍNCULOS
 // ============================
 
