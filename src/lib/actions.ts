@@ -2,8 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 import { prisma } from "./prisma";
 import {
   createSession,
@@ -1080,13 +1078,11 @@ export async function uploadFileAction(formData: FormData) {
 
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
-  const uploadsDir = path.join(process.cwd(), "public", "uploads");
-  await mkdir(uploadsDir, { recursive: true });
+  const base64 = buffer.toString("base64");
+  const mimeType = file.type || "application/octet-stream";
+  const url = `data:${mimeType};base64,${base64}`;
 
-  const safeName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-  await writeFile(path.join(uploadsDir, safeName), buffer);
-
-  return { url: `/uploads/${safeName}`, fileName: file.name };
+  return { url, fileName: file.name };
 }
 
 export async function updatePersonalProfileAction(formData: FormData): Promise<void> {
@@ -1539,13 +1535,10 @@ export async function updateAvatarAction(formData: FormData) {
 
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
-  const uploadsDir = path.join(process.cwd(), "public", "uploads", "avatars");
-  await mkdir(uploadsDir, { recursive: true });
+  const base64 = buffer.toString("base64");
+  const mimeType = file.type || "image/jpeg";
+  const avatarUrl = `data:${mimeType};base64,${base64}`;
 
-  const safeName = `${session.id}-${Date.now()}.${file.name.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "") || "jpg"}`;
-  await writeFile(path.join(uploadsDir, safeName), buffer);
-
-  const avatarUrl = `/uploads/avatars/${safeName}`;
   await prisma.user.update({
     where: { id: session.id },
     data: { avatarUrl },
@@ -1576,13 +1569,9 @@ export async function uploadPortfolioPhotoAction(formData: FormData) {
 
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
-  const uploadsDir = path.join(process.cwd(), "public", "uploads", "portfolio");
-  await mkdir(uploadsDir, { recursive: true });
-
-  const safeName = `${session.id}-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-  await writeFile(path.join(uploadsDir, safeName), buffer);
-
-  const photoUrl = `/uploads/portfolio/${safeName}`;
+  const base64 = buffer.toString("base64");
+  const mimeType = file.type || "image/jpeg";
+  const photoUrl = `data:${mimeType};base64,${base64}`;
 
   const existingCount = await prisma.portfolioPhoto.count({
     where: { personalId: profile.id, categoryId },
