@@ -46,7 +46,7 @@ export async function syncSubscription(personalUserId: string) {
   if (!sub) return null;
 
   const activeStudents = await countActiveStudents(personalUserId);
-  const pricing = calculateMonthlyPrice(activeStudents);
+  const pricing = await calculateMonthlyPrice(activeStudents);
   const now = new Date();
   const trialExpired = sub.status === "TRIAL" && sub.trialEndsAt < now;
 

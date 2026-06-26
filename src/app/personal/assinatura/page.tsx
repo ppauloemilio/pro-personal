@@ -72,8 +72,8 @@ export default async function PersonalAssinaturaPage() {
       <Card>
         <CardTitle>Simulador de planos</CardTitle>
         <div className="mt-4 space-y-4">
-          {[5, 15, 35, 50].map((n) => {
-            const p = calculateMonthlyPrice(n);
+          {(await Promise.all([5, 15, 35, 50].map(async (n) => {
+            const p = await calculateMonthlyPrice(n);
             return (
               <div
                 key={n}
@@ -85,7 +85,7 @@ export default async function PersonalAssinaturaPage() {
                 </span>
               </div>
             );
-          })}
+          })))}
         </div>
       </Card>
 
