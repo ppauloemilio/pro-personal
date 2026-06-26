@@ -1865,3 +1865,78 @@ export async function adminCreateBookingFormAction(formData: FormData): Promise<
     redirect(`/admin/agenda?date=${format(new Date(startAt), "yyyy-MM-dd")}`);
   }
 }
+
+// ============================
+// ADMIN: CONFIGURAÇÕES DO APP
+// ============================
+
+export async function getAppConfigAction(key: string): Promise<string | null> {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") throw new Error("FORBIDDEN");
+
+  const { getAppConfig } = await import("./app-config");
+  return getAppConfig(key);
+}
+
+export async function setAppConfigAction(key: string, value: string): Promise<void> {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") throw new Error("FORBIDDEN");
+
+  const { setAppConfig } = await import("./app-config");
+  await setAppConfig(key, value);
+  revalidatePath("/admin/configuracoes");
+}
+
+export async function saveAppConfigFormAction(formData: FormData): Promise<void> {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") throw new Error("FORBIDDEN");
+
+  const { setAppConfig } = await import("./app-config");
+
+  const configs: Record<string, string> = {
+    mp_access_token: String(formData.get("mp_access_token") ?? ""),
+    mp_sandbox_mode: formData.get("mp_sandbox_mode") === "on" ? "true" : "false",
+    trial_days: String(formData.get("trial_days") || "7"),
+    plan_starter_price: String(formData.get("plan_starter_price") || "20"),
+    plan_pro_price: String(formData.get("plan_pro_price") || "50"),
+    plan_pro_plus_base: String(formData.get("plan_pro_plus_base") || "50"),
+    plan_pro_plus_excess: String(formData.get("plan_pro_plus_excess") || "1.5"),
+  };
+
+  for (const [key, value] of Object.entries(configs)) {
+    await setAppConfig(key, value);
+  }
+
+  revalidatePath("/admin/configuracoes");
+}
+
+// ============================
+// MERCADO PAGO: SUBSCRIPTION
+// ============================
+
+export async function createMercadoPagoSubscriptionAction(): Promise<{ checkoutUrl: string } | { error: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "PERSONAL") throw new Error("FORBIDDEN");
+
+  try {
+    const { createSubscriptionForPersonal } = await import("./mercadopago");
+    const result = await createSubscriptionForPersonal(session.id);
+    return { checkoutUrl: result.checkoutUrl };
+  } catch (err: any) {
+    return { error: err.message || "Erro ao criar assinatura no Mercado Pago." };
+  }
+}
+
+export async function cancelMercadoPagoSubscriptionAction(): Promise<{ success: boolean } | { error: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "PERSONAL") throw new Error("FORBIDDEN");
+
+  try {
+    const { cancelSubscriptionForPersonal } = await import("./mercadopago");
+    await cancelSubscriptionForPersonal(session.id);
+    revalidatePath("/personal/assinatura");
+    return { success: true };
+  } catch (err: any) {
+    return { error: err.message || "Erro ao cancelar assinatura no Mercado Pago." };
+  }
+}

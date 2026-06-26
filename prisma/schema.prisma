@@ -372,8 +372,16 @@ model Subscription {
   monthlyAmount      Float              @default(0)
   planLabel          String             @default("Trial")
   activatedAt        DateTime?
+  mpSubscriptionId   String?
+  mpPlanId           String?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AppConfig {
+  key       String   @id
+  value     String   @default("")
+  updatedAt DateTime @updatedAt
 }

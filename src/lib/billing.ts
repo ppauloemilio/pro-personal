@@ -1,30 +1,58 @@
+import { getTrialDays, getPlanPrices } from "./app-config";
+
 export type PlanTier = "starter" | "pro" | "pro_plus";
 
-export function calculateMonthlyPrice(activeStudents: number): {
-  tier: PlanTier;
-  label: string;
-  amount: number;
-  excess: number;
-} {
+export async function calculateMonthlyPrice(activeStudents: number) {
+  const prices = await getPlanPrices();
   const A = activeStudents;
-  const E = Math.max(0, A - 30);
+  const proPlusThreshold = 30;
 
   if (A <= 10) {
-    return { tier: "starter", label: "Starter", amount: 20, excess: 0 };
+    return { tier: "starter" as PlanTier, label: "Starter", amount: prices.starter, excess: 0 };
   }
-  if (A <= 30) {
-    return { tier: "pro", label: "Pro", amount: 50, excess: 0 };
+  if (A <= proPlusThreshold) {
+    return { tier: "pro" as PlanTier, label: "Pro", amount: prices.pro, excess: 0 };
   }
+  const E = Math.max(0, A - proPlusThreshold);
   return {
-    tier: "pro_plus",
+    tier: "pro_plus" as PlanTier,
     label: "Pro+",
-    amount: 50 + E * 1.5,
+    amount: prices.proPlusBase + E * prices.proPlusExcess,
     excess: E,
   };
 }
 
-export function getTrialEndDate(from = new Date()) {
+/** Synchronous version for contexts where async is not possible (e.g. seed) */
+export function calculateMonthlyPriceSync(
+  activeStudents: number,
+  prices: { starter: number; pro: number; proPlusBase: number; proPlusExcess: number }
+) {
+  const A = activeStudents;
+  if (A <= 10) {
+    return { tier: "starter" as PlanTier, label: "Starter", amount: prices.starter, excess: 0 };
+  }
+  if (A <= 30) {
+    return { tier: "pro" as PlanTier, label: "Pro", amount: prices.pro, excess: 0 };
+  }
+  const E = Math.max(0, A - 30);
+  return {
+    tier: "pro_plus" as PlanTier,
+    label: "Pro+",
+    amount: prices.proPlusBase + E * prices.proPlusExcess,
+    excess: E,
+  };
+}
+
+export async function getTrialEndDate(from = new Date()) {
+  const days = await getTrialDays();
   const end = new Date(from);
-  end.setDate(end.getDate() + 30);
+  end.setDate(end.getDate() + days);
+  return end;
+}
+
+/** Synchronous version for seed / non-async contexts */
+export function getTrialEndDateSync(from = new Date(), days = 7) {
+  const end = new Date(from);
+  end.setDate(end.getDate() + days);
   return end;
 }
