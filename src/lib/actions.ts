@@ -1922,8 +1922,9 @@ export async function createMercadoPagoSubscriptionAction(): Promise<{ checkoutU
     const { createSubscriptionForPersonal } = await import("./mercadopago");
     const result = await createSubscriptionForPersonal(session.id);
     return { checkoutUrl: result.checkoutUrl };
-  } catch (err: any) {
-    return { error: err.message || "Erro ao criar assinatura no Mercado Pago." };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Erro ao criar assinatura no Mercado Pago.";
+    return { error: message };
   }
 }
 
@@ -1936,7 +1937,8 @@ export async function cancelMercadoPagoSubscriptionAction(): Promise<{ success: 
     await cancelSubscriptionForPersonal(session.id);
     revalidatePath("/personal/assinatura");
     return { success: true };
-  } catch (err: any) {
-    return { error: err.message || "Erro ao cancelar assinatura no Mercado Pago." };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Erro ao cancelar assinatura no Mercado Pago.";
+    return { error: message };
   }
 }
