@@ -2,18 +2,22 @@ import { getSession } from "@/lib/auth";
 import { getPersonalAccess } from "@/lib/permissions";
 import { calculateMonthlyPrice } from "@/lib/billing";
 import { formatCurrency } from "@/lib/utils";
+import { getAppConfig } from "@/lib/app-config";
 import { Card, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { activateSubscriptionAction } from "@/lib/actions";
+import { Check } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Check } from "lucide-react";
+import SubscriptionActions from "./subscription-actions";
 
 export default async function PersonalAssinaturaPage() {
   const session = await getSession();
   const access = await getPersonalAccess(session!.id);
-  const pricing = calculateMonthlyPrice(access.activeStudents);
+  const pricing = await calculateMonthlyPrice(access.activeStudents);
+
+  // Check if MP token is configured
+  const mpToken = await getAppConfig("mp_access_token");
+  const hasMPToken = !!mpToken && mpToken.trim().length > 0;
 
   const tiers = [
     { name: "Starter", range: "1 a 10 alunos", price: "R$ 20/mês" },
@@ -36,6 +40,9 @@ export default async function PersonalAssinaturaPage() {
           <Badge variant="default">
             {access.activeStudents} alunos ativos
           </Badge>
+          {!access.isTrial && !access.isReadOnly && (
+            <Badge variant="success">Plano ativo</Badge>
+          )}
         </div>
         <p className="mt-4 text-3xl font-bold text-white">
           {access.isTrial
@@ -53,16 +60,13 @@ export default async function PersonalAssinaturaPage() {
             Excedente: {pricing.excess} alunos × R$ 1,50
           </p>
         )}
-        {(access.isReadOnly || access.isTrial) && (
-          <form action={activateSubscriptionAction} className="mt-6">
-            <Button type="submit" className="w-full sm:w-auto">
-              Ativar plano (simulação)
-            </Button>
-            <p className="mt-2 text-xs text-slate-500">
-              Integração de pagamento em breve. Use para testar modo ativo.
-            </p>
-          </form>
-        )}
+
+        <SubscriptionActions
+          isTrial={access.isTrial}
+          isReadOnly={access.isReadOnly}
+          hasMPToken={hasMPToken}
+          trialEndsAt={access.trialEndsAt?.toISOString() ?? null}
+        />
       </Card>
 
       <Card>

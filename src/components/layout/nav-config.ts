@@ -35,4 +35,5 @@ export const adminNav: NavItemConfig[] = [
   { href: "/admin/agenda", label: "Agenda", icon: "calendar" },
   { href: "/admin/categorias", label: "Categorias", icon: "tags" },
   { href: "/admin/chat", label: "Chat", icon: "message-circle" },
+  { href: "/admin/configuracoes", label: "Configurações", icon: "settings" },
 ];

@@ -334,6 +334,25 @@ async function main() {
     });
   }
 
+  // ── AppConfig defaults ────────────────────────────────────────────
+  const appConfigDefaults: Record<string, string> = {
+    mp_access_token: "",
+    mp_sandbox_mode: "true",
+    trial_days: "7",
+    plan_starter_price: "20",
+    plan_pro_price: "50",
+    plan_pro_plus_base: "50",
+    plan_pro_plus_excess: "1.5",
+  };
+
+  for (const [key, value] of Object.entries(appConfigDefaults)) {
+    await prisma.appConfig.upsert({
+      where: { key },
+      update: {},
+      create: { key, value },
+    });
+  }
+
   console.log("\n✅ Seed concluído (idempotente)!\n");
   console.log("Contas demo (senha: demo123):");
   console.log("  Admin:    admin@propersonal.com");
