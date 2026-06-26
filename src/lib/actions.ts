@@ -80,7 +80,7 @@ export async function registerAction(formData: FormData) {
               subscription: {
                 create: {
                   status: "TRIAL",
-                  trialEndsAt: getTrialEndDate(),
+                  trialEndsAt: await getTrialEndDate(),
                   planLabel: "Trial",
                 },
               },
