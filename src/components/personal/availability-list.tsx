@@ -5,9 +5,7 @@ import { Button } from "@/components/ui/button";
 import {
   saveAvailabilityAction,
   deleteAvailabilityFormAction,
-} from "@/lib/actions";
-
-export type AvailabilityItem = {
+} from "@/lib/actions";export type AvailabilityItem = {
   id: string;
   locationId: string;
   locationName: string;
@@ -34,9 +32,7 @@ export function AvailabilityList({
   canWrite: boolean;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [showAddWeekend, setShowAddWeekend] = useState(false);
 
-  const hasWeekendRules = rules.some((r) => r.dayOfWeek === 0 || r.dayOfWeek === 6);
   const hasWeekdayRules = rules.some((r) => r.dayOfWeek >= 1 && r.dayOfWeek <= 5);
 
   if (rules.length === 0) {
@@ -146,23 +142,13 @@ export function AvailabilityList({
         );
       })}
 
-      {/* Quick add weekend hours */}
-      {canWrite && hasWeekdayRules && !showAddWeekend && (
-        <button
-          type="button"
-          onClick={() => setShowAddWeekend(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-300 transition-colors hover:bg-amber-500/10"
-        >
-          + Adicionar horário de fim de semana (Sáb/Dom)
-        </button>
-      )}
-
-      {canWrite && showAddWeekend && (
+      {/* Add new availability */}
+      {canWrite && locations.length > 0 && (
         <form
           action={saveAvailabilityAction}
-          className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4"
+          className="rounded-xl border border-dashed border-brand-500/30 bg-brand-500/5 p-4"
         >
-          <p className="mb-3 text-sm font-medium text-amber-300">Adicionar horário de fim de semana</p>
+          <p className="mb-3 text-sm font-medium text-brand-300">Adicionar disponibilidade</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <select name="locationId" required className="w-full">
               {locations.map((location) => (
@@ -171,12 +157,15 @@ export function AvailabilityList({
                 </option>
               ))}
             </select>
-            <select name="dayOfWeek" required defaultValue={6} className="w-full">
-              <option value={0}>Dom</option>
-              <option value={6}>Sáb</option>
+            <select name="dayOfWeek" required className="w-full">
+              {DAYS.map((day, index) => (
+                <option key={day} value={index}>
+                  {day}
+                </option>
+              ))}
             </select>
             <input name="startTime" type="time" required defaultValue="08:00" />
-            <input name="endTime" type="time" required defaultValue="12:00" />
+            <input name="endTime" type="time" required defaultValue="23:00" />
             <input
               name="slotMinutes"
               type="number"
@@ -185,19 +174,9 @@ export function AvailabilityList({
               step={15}
               placeholder="Duração slot (min)"
             />
-            <div className="flex gap-2 sm:col-span-2">
-              <Button type="submit" size="sm">
-                Adicionar
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() => setShowAddWeekend(false)}
-              >
-                Cancelar
-              </Button>
-            </div>
+            <Button type="submit" size="sm">
+              Adicionar
+            </Button>
           </div>
         </form>
       )}

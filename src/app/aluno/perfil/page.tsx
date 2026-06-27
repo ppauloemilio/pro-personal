@@ -66,6 +66,9 @@ export default async function AlunoPerfilPage() {
               <Card key={v.id} className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <p className="font-medium text-white">{v.personal.name}</p>
+                  {v.createdAt && (
+                    <p className="text-xs text-slate-500">Vínculo desde {v.createdAt.toLocaleDateString("pt-BR")}</p>
+                  )}
                   <div className="mt-1 flex flex-wrap gap-1">
                     {v.personal.personalProfile?.categories.map((c) => (
                       <Badge key={c.categoryId} variant="success" className="text-xs">{c.category.name}</Badge>

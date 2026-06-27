@@ -208,7 +208,7 @@ export default async function PersonalPerfilPage({
       <Card>
         <CardTitle>Disponibilidade semanal</CardTitle>
         <p className="mt-1 text-sm text-slate-400">
-          Padrão: Seg-Sex 8h–12h e 13h–22h. Você pode editar e adicionar horários de fim de semana.
+          Padrão: Todos os dias 8h–23h. Você pode editar e adicionar horários.
         </p>
         <div className="mt-4">
           <AvailabilityList
@@ -228,7 +228,7 @@ export default async function PersonalPerfilPage({
         {access.canWrite && profile && profile.locations.length > 0 && availabilityRules.length === 0 && (
           <form action={seedDefaultAvailabilityAction} className="mt-4">
             <Button type="submit" variant="secondary">
-              Usar disponibilidade padrão (Seg-Sex 8h–12h / 13h–22h)
+              Usar disponibilidade padrão (Todos os dias 8h–23h)
             </Button>
           </form>
         )}

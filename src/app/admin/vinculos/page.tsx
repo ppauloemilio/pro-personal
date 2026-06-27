@@ -78,6 +78,11 @@ export default async function AdminVinculosPage({
                 </p>
                 <p className="font-medium text-white">{v.personal.name}</p>
                 <p className="text-sm text-slate-400">{v.student.name}</p>
+                {v.createdAt && (
+                  <p className="text-xs text-slate-500">
+                    Início: {v.createdAt.toLocaleDateString("pt-BR")}
+                  </p>
+                )}
                 <Badge
                   variant={
                     v.status === "ATIVO" ? "success" :

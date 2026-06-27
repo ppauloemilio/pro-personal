@@ -1211,6 +1211,7 @@ export async function saveAvailabilityAction(formData: FormData): Promise<void> 
 
   revalidatePath("/personal/perfil");
   revalidatePath("/personal/agenda");
+  redirect("/personal/perfil");
 }
 
 export async function deleteAvailabilityFormAction(formData: FormData): Promise<void> {
@@ -1647,16 +1648,13 @@ export async function seedDefaultAvailabilityAction(formData: FormData): Promise
   const location = profile.locations[0]; // Use first location as default
 
   const DEFAULT_AVAILABILITY = [
-    { dayOfWeek: 1, startTime: "08:00", endTime: "12:00", slotMinutes: 60 },
-    { dayOfWeek: 1, startTime: "13:00", endTime: "22:00", slotMinutes: 60 },
-    { dayOfWeek: 2, startTime: "08:00", endTime: "12:00", slotMinutes: 60 },
-    { dayOfWeek: 2, startTime: "13:00", endTime: "22:00", slotMinutes: 60 },
-    { dayOfWeek: 3, startTime: "08:00", endTime: "12:00", slotMinutes: 60 },
-    { dayOfWeek: 3, startTime: "13:00", endTime: "22:00", slotMinutes: 60 },
-    { dayOfWeek: 4, startTime: "08:00", endTime: "12:00", slotMinutes: 60 },
-    { dayOfWeek: 4, startTime: "13:00", endTime: "22:00", slotMinutes: 60 },
-    { dayOfWeek: 5, startTime: "08:00", endTime: "12:00", slotMinutes: 60 },
-    { dayOfWeek: 5, startTime: "13:00", endTime: "22:00", slotMinutes: 60 },
+    { dayOfWeek: 0, startTime: "08:00", endTime: "23:00", slotMinutes: 60 },
+    { dayOfWeek: 1, startTime: "08:00", endTime: "23:00", slotMinutes: 60 },
+    { dayOfWeek: 2, startTime: "08:00", endTime: "23:00", slotMinutes: 60 },
+    { dayOfWeek: 3, startTime: "08:00", endTime: "23:00", slotMinutes: 60 },
+    { dayOfWeek: 4, startTime: "08:00", endTime: "23:00", slotMinutes: 60 },
+    { dayOfWeek: 5, startTime: "08:00", endTime: "23:00", slotMinutes: 60 },
+    { dayOfWeek: 6, startTime: "08:00", endTime: "23:00", slotMinutes: 60 },
   ];
 
   await prisma.availabilityRule.createMany({
