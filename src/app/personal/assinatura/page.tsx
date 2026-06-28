@@ -74,8 +74,7 @@ export default async function PersonalAssinaturaPage() {
         <div className="mt-4 space-y-4">
           {(await Promise.all([5, 15, 35, 50].map(async (n) => {
             const p = await calculateMonthlyPrice(n);
-            return { n, ...p };
-          }))).map(({ n, label, amount }) => (
+            return (
               <div
                 key={n}
                 className="flex justify-between rounded-xl bg-surface-elevated/50 px-4 py-3 text-sm"
@@ -85,8 +84,8 @@ export default async function PersonalAssinaturaPage() {
                   {formatCurrency(amount)}
                 </span>
               </div>
-            ),
-          )}
+            );
+          })))}
         </div>
       </Card>
 

@@ -233,27 +233,30 @@ export default async function AdminPersonaisPage({
             <div>
 
               <p className="mb-2 text-sm font-medium text-white">
-
-                Alunos ({p.vinculosAsPersonal.length})
-
+                Alunos ativos: {p.vinculosAsPersonal.length}
               </p>
-
               <ul className="space-y-1 text-sm text-slate-400">
-
                 {p.vinculosAsPersonal.map((v) => (
-
-                  <li key={v.id}>{v.student.name}</li>
-
+                  <li key={v.id} className="flex items-center gap-2">
+                    {v.student.avatarUrl ? (
+                      <img src={v.student.avatarUrl} alt={v.student.name} className="h-6 w-6 rounded-full object-cover" />
+                    ) : (
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-500/20 text-[10px] text-brand-400">
+                        {v.student.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    {v.student.name}
+                    {v.createdAt && (
+                      <span className="text-xs text-slate-500">
+                        desde {v.createdAt.toLocaleDateString("pt-BR")}
+                      </span>
+                    )}
+                  </li>
                 ))}
-
                 {p.vinculosAsPersonal.length === 0 && (
-
                   <li>Nenhum aluno ativo</li>
-
                 )}
-
               </ul>
-
             </div>
 
 

@@ -105,6 +105,9 @@ export default async function PersonalAlunosPage({
                 <div>
                   <p className="font-medium text-white">{v.student.name}</p>
                   <p className="text-sm text-slate-400">{v.student.email}</p>
+                  {v.createdAt && (
+                    <p className="text-xs text-slate-500">Vínculo desde {v.createdAt.toLocaleDateString("pt-BR")}</p>
+                  )}
                   <Badge variant="success" className="mt-1">ATIVO</Badge>
                 </div>
               </div>

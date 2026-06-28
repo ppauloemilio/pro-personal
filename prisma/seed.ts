@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { getTrialEndDate } from "../src/lib/billing";
+import { getTrialEndDateSync } from "../src/lib/billing";
 import { generateInviteCode, slugify } from "../src/lib/utils";
 
 const prisma = new PrismaClient();
@@ -39,7 +39,7 @@ async function main() {
       subscription: {
         create: {
           status: "TRIAL",
-          trialEndsAt: await getTrialEndDate(),
+          trialEndsAt: getTrialEndDateSync(),
           planLabel: "Trial",
         },
       },
@@ -66,7 +66,7 @@ async function main() {
       subscription: {
         create: {
           status: "ATIVA",
-          trialEndsAt: await getTrialEndDate(new Date(Date.now() - 40 * 86400000)),
+          trialEndsAt: getTrialEndDateSync(new Date(Date.now() - 40 * 86400000)),
           planLabel: "Starter",
           monthlyAmount: 20,
           activeStudents: 1,
