@@ -79,9 +79,9 @@ export default async function PersonalAssinaturaPage() {
                 key={n}
                 className="flex justify-between rounded-xl bg-surface-elevated/50 px-4 py-3 text-sm"
               >
-                <span>{n} alunos → {label}</span>
+                <span>{n} alunos → {p.label}</span>
                 <span className="font-medium text-brand-300">
-                  {formatCurrency(amount)}
+                  {formatCurrency(p.amount)}
                 </span>
               </div>
             );
