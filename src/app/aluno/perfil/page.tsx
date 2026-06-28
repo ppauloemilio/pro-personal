@@ -4,6 +4,7 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StudentAvatarUpload } from "@/components/aluno/avatar-upload";
+import { StudentProfileForm } from "@/components/aluno/student-profile-form";
 import { DesvincularButton } from "@/components/desvincular-button";
 import Link from "next/link";
 
@@ -11,7 +12,10 @@ export default async function AlunoPerfilPage() {
   const session = await getSession();
   if (!session || session.role !== "ALUNO") return null;
 
-  const user = await prisma.user.findUnique({ where: { id: session.id } });
+  const user = await prisma.user.findUnique({
+    where: { id: session.id },
+    include: { studentProfile: true },
+  });
 
   const vinculos = await prisma.vinculo.findMany({
     where: { studentId: session.id, status: { in: ["ATIVO", "PENDENTE"] } },
@@ -36,18 +40,23 @@ export default async function AlunoPerfilPage() {
     take: 10,
   });
 
-  const linkedPersonalIds = new Set(vinculos.map((v) => v.personalId));
-
   return (
     <div className="mx-auto max-w-2xl space-y-8">
-      {/* Foto de perfil */}
+      {/* Foto de perfil + dados editáveis */}
       <Card>
         <CardTitle>Meu perfil</CardTitle>
         <div className="mt-4">
           <StudentAvatarUpload currentAvatar={user?.avatarUrl || null} />
         </div>
-        <p className="mt-3 text-lg font-medium text-white">{user?.name}</p>
-        <p className="text-sm text-slate-400">{user?.email}</p>
+        <div className="mt-4">
+          <StudentProfileForm
+            initialName={user?.name || ""}
+            initialEmail={user?.email || ""}
+            initialPhone={user?.studentProfile?.phone || null}
+            initialAge={user?.studentProfile?.age || null}
+            initialObservation={user?.studentProfile?.observation || null}
+          />
+        </div>
       </Card>
 
       {/* Vínculos ativos */}

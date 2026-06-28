@@ -39,7 +39,7 @@ async function main() {
       subscription: {
         create: {
           status: "TRIAL",
-          trialEndsAt: getTrialEndDate(),
+          trialEndsAt: await getTrialEndDate(),
           planLabel: "Trial",
         },
       },
@@ -66,7 +66,7 @@ async function main() {
       subscription: {
         create: {
           status: "ATIVA",
-          trialEndsAt: getTrialEndDate(new Date(Date.now() - 40 * 86400000)),
+          trialEndsAt: await getTrialEndDate(new Date(Date.now() - 40 * 86400000)),
           planLabel: "Starter",
           monthlyAmount: 20,
           activeStudents: 1,

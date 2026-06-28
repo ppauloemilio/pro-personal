@@ -80,12 +80,15 @@ export async function registerAction(formData: FormData) {
               subscription: {
                 create: {
                   status: "TRIAL",
-                  trialEndsAt: getTrialEndDate(),
+                  trialEndsAt: await getTrialEndDate(),
                   planLabel: "Trial",
                 },
               },
             }
-          : { studentProfile: { create: {} } }),
+          : { studentProfile: { create: {
+            phone: String(formData.get("phone") || "").trim() || undefined,
+            age: formData.get("age") ? Number(formData.get("age")) || undefined : undefined,
+          } } }),
     },
   });
 
@@ -1627,7 +1630,7 @@ export async function uploadPortfolioPhotoFormAction(formData: FormData): Promis
 // SEED DEFAULT AVAILABILITY
 // ============================
 
-export async function seedDefaultAvailabilityAction(formData: FormData): Promise<void> {
+export async function seedDefaultAvailabilityAction(_formData: FormData): Promise<void> {
   const session = await getSession();
   if (!session || session.role !== "PERSONAL") throw new Error("FORBIDDEN");
   await assertPersonalCanWrite(session.id);
@@ -1922,8 +1925,9 @@ export async function createMercadoPagoSubscriptionAction(): Promise<{ checkoutU
     const { createSubscriptionForPersonal } = await import("./mercadopago");
     const result = await createSubscriptionForPersonal(session.id);
     return { checkoutUrl: result.checkoutUrl };
-  } catch (err: any) {
-    return { error: err.message || "Erro ao criar assinatura no Mercado Pago." };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Erro ao criar assinatura no Mercado Pago.";
+    return { error: message };
   }
 }
 
@@ -1936,7 +1940,132 @@ export async function cancelMercadoPagoSubscriptionAction(): Promise<{ success: 
     await cancelSubscriptionForPersonal(session.id);
     revalidatePath("/personal/assinatura");
     return { success: true };
-  } catch (err: any) {
-    return { error: err.message || "Erro ao cancelar assinatura no Mercado Pago." };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Erro ao cancelar assinatura no Mercado Pago.";
+    return { error: message };
   }
+}
+
+// ============================
+// ADMIN: CRUD CATEGORIAS
+// ============================
+
+export async function adminCreateCategoryAction(name: string): Promise<{ success: boolean } | { error: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") throw new Error("FORBIDDEN");
+
+  const trimmed = name.trim();
+  if (!trimmed) return { error: "Nome da categoria é obrigatório." };
+
+  const existing = await prisma.category.findFirst({ where: { name: trimmed } });
+  if (existing) return { error: "Categoria com esse nome já existe." };
+
+  await prisma.category.create({
+    data: { name: trimmed, slug: slugify(trimmed) + "-" + Date.now().toString(36) },
+  });
+
+  revalidateAll();
+  return { success: true };
+}
+
+export async function adminCreateCategoryFormAction(formData: FormData): Promise<void> {
+  const name = String(formData.get("name") || "");
+  await adminCreateCategoryAction(name);
+}
+
+export async function adminUpdateCategoryAction(categoryId: string, newName: string): Promise<{ success: boolean } | { error: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") throw new Error("FORBIDDEN");
+
+  const trimmed = newName.trim();
+  if (!trimmed) return { error: "Nome da categoria é obrigatório." };
+
+  const category = await prisma.category.findUnique({ where: { id: categoryId } });
+  if (!category) return { error: "Categoria não encontrada." };
+
+  const existing = await prisma.category.findFirst({
+    where: { name: trimmed, id: { not: categoryId } },
+  });
+  if (existing) return { error: "Já existe outra categoria com esse nome." };
+
+  await prisma.category.update({
+    where: { id: categoryId },
+    data: { name: trimmed },
+  });
+
+  revalidateAll();
+  return { success: true };
+}
+
+export async function adminUpdateCategoryFormAction(formData: FormData): Promise<void> {
+  const categoryId = String(formData.get("categoryId") || "");
+  const name = String(formData.get("name") || "");
+  await adminUpdateCategoryAction(categoryId, name);
+}
+
+export async function adminDeleteCategoryAction(categoryId: string): Promise<{ success: boolean } | { error: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") throw new Error("FORBIDDEN");
+
+  const category = await prisma.category.findUnique({
+    where: { id: categoryId },
+    include: { personals: true, portfolioPhotos: true },
+  });
+  if (!category) return { error: "Categoria não encontrada." };
+
+  if (category.personals.length > 0) {
+    return { error: `Categoria usada por ${category.personals.length} personal(s). Remova os vínculos primeiro.` };
+  }
+
+  await prisma.personalCategory.deleteMany({ where: { categoryId } });
+  await prisma.category.delete({ where: { id: categoryId } });
+
+  revalidateAll();
+  return { success: true };
+}
+
+export async function adminDeleteCategoryFormAction(formData: FormData): Promise<void> {
+  const categoryId = String(formData.get("categoryId") || "");
+  await adminDeleteCategoryAction(categoryId);
+}
+
+// ============================
+// ALUNO: EDITAR PERFIL
+// ============================
+
+export async function updateStudentProfileAction(formData: FormData): Promise<{ success: boolean } | { error: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "ALUNO") throw new Error("FORBIDDEN");
+
+  const name = String(formData.get("name") || "").trim();
+  const email = String(formData.get("email") || "").trim().toLowerCase();
+  const phone = String(formData.get("phone") || "").trim();
+  const age = formData.get("age") ? Number(formData.get("age")) : null;
+  const observation = String(formData.get("observation") || "").trim();
+
+  if (!name) return { error: "Nome é obrigatório." };
+  if (!email) return { error: "E-mail é obrigatório." };
+
+  // Check email uniqueness
+  if (email !== session.email) {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) return { error: "E-mail já em uso por outra conta." };
+  }
+
+  await prisma.user.update({
+    where: { id: session.id },
+    data: { name, email },
+  });
+
+  await prisma.studentProfile.update({
+    where: { userId: session.id },
+    data: {
+      phone: phone || null,
+      age: age && age > 0 ? age : null,
+      observation: observation || null,
+    },
+  });
+
+  revalidateAll();
+  return { success: true };
 }

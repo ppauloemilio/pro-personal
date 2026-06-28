@@ -72,20 +72,21 @@ export default async function PersonalAssinaturaPage() {
       <Card>
         <CardTitle>Simulador de planos</CardTitle>
         <div className="mt-4 space-y-4">
-          {[5, 15, 35, 50].map((n) => {
-            const p = calculateMonthlyPrice(n);
-            return (
+          {(await Promise.all([5, 15, 35, 50].map(async (n) => {
+            const p = await calculateMonthlyPrice(n);
+            return { n, ...p };
+          }))).map(({ n, label, amount }) => (
               <div
                 key={n}
                 className="flex justify-between rounded-xl bg-surface-elevated/50 px-4 py-3 text-sm"
               >
-                <span>{n} alunos → {p.label}</span>
+                <span>{n} alunos → {label}</span>
                 <span className="font-medium text-brand-300">
-                  {formatCurrency(p.amount)}
+                  {formatCurrency(amount)}
                 </span>
               </div>
-            );
-          })}
+            ),
+          )}
         </div>
       </Card>
 

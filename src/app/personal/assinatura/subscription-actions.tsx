@@ -56,7 +56,7 @@ export default function SubscriptionActions({
         {daysLeft !== null && (
           <p className="text-sm text-slate-400">
             {daysLeft > 0
-              ? `Restam ${daysLeft} dia${daysLeft > 1 ? "s" : "" de trial.`
+              ? `Restam ${daysLeft} dia${daysLeft > 1 ? "s" : ""} de trial.`
               : "Seu trial expirou."}
           </p>
         )}

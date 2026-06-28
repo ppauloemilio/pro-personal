@@ -127,6 +127,9 @@ model StudentProfile {
   id               String   @id @default(cuid())
   userId           String   @unique
   activeVinculoId   String?
+  phone            String?
+  age              Int?
+  observation      String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

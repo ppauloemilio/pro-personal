@@ -50,6 +50,14 @@ export default async function RegisterPage({
             <label className="mb-1 block text-xs text-slate-400">Senha</label>
             <input name="password" type="password" required minLength={6} className="w-full" />
           </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-400">Telefone</label>
+            <input name="phone" type="tel" placeholder="(11) 99999-9999" className="w-full" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-400">Idade</label>
+            <input name="age" type="number" min={1} max={120} placeholder="Ex: 25" className="w-full" />
+          </div>
           {allowAdmin && (
             <div>
               <label className="mb-1 block text-xs text-slate-400">Tipo de conta</label>

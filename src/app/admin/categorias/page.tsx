@@ -5,10 +5,17 @@ import { Button } from "@/components/ui/button";
 import {
   approveCategoryFormAction,
   rejectCategoryFormAction,
+  adminCreateCategoryFormAction,
+  adminUpdateCategoryFormAction,
+  adminDeleteCategoryFormAction,
 } from "@/lib/actions";
+import { CategoryManager } from "./category-manager";
 
 export default async function AdminCategoriasPage() {
-  const categories = await prisma.category.findMany({ orderBy: { name: "asc" } });
+  const categories = await prisma.category.findMany({
+    orderBy: { name: "asc" },
+    include: { _count: { select: { personals: true } } },
+  });
   const requests = await prisma.categoryRequest.findMany({
     where: { status: "EM_ANALISE" },
     include: {
@@ -19,6 +26,21 @@ export default async function AdminCategoriasPage() {
 
   return (
     <div className="space-y-8">
+      {/* Criar nova categoria */}
+      <section>
+        <CardTitle className="mb-4">Criar categoria</CardTitle>
+        <form action={adminCreateCategoryFormAction} className="flex gap-2">
+          <input
+            name="name"
+            required
+            placeholder="Nome da nova categoria"
+            className="flex-1 rounded-xl border border-surface-border bg-surface-elevated px-4 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
+          />
+          <Button type="submit">Criar</Button>
+        </form>
+      </section>
+
+      {/* Solicitações pendentes */}
       <section>
         <CardTitle className="mb-4">Solicitações pendentes</CardTitle>
         {requests.length === 0 ? (
@@ -48,7 +70,7 @@ export default async function AdminCategoriasPage() {
                     <input
                       name="reason"
                       placeholder="Motivo recusa"
-                      className="max-w-[200px]"
+                      className="max-w-[200px] rounded-lg border border-surface-border bg-surface-elevated px-3 py-1 text-sm text-white placeholder-slate-500"
                     />
                     <Button type="submit" size="sm" variant="danger">
                       Recusar
@@ -61,15 +83,23 @@ export default async function AdminCategoriasPage() {
         )}
       </section>
 
+      {/* Categorias existentes com editar/excluir */}
       <section>
-        <CardTitle className="mb-4">Categorias aprovadas</CardTitle>
-        <div className="flex flex-wrap gap-2">
-          {categories.map((c) => (
-            <Badge key={c.id} variant="success">
-              {c.name}
-            </Badge>
-          ))}
-        </div>
+        <CardTitle className="mb-4">Categorias cadastradas ({categories.length})</CardTitle>
+        {categories.length === 0 ? (
+          <Card className="text-slate-400">Nenhuma categoria cadastrada.</Card>
+        ) : (
+          <div className="space-y-2">
+            {categories.map((c) => (
+              <CategoryManager
+                key={c.id}
+                id={c.id}
+                name={c.name}
+                personalCount={c._count.personals}
+              />
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );
