@@ -1,47 +1,43 @@
 import { getSession } from "@/lib/auth";
-import { getStudentContext } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
-import { redirect } from "next/navigation";
-import { ChatPanel } from "@/components/chat-panel";
+import { getChatUnreadState } from "@/lib/chat-unread";
+import { ChatContactList } from "@/components/search/chat-contact-list";
 
-export default async function AlunoChatPage() {
+export default async function AlunoChatListPage() {
   const session = await getSession();
-  const ctx = await getStudentContext(session!.id);
-  const vinculo = ctx.activeVinculo || ctx.vinculos.find((v) => v.status === "ATIVO");
-  if (!vinculo) redirect("/aluno");
 
-  let conv = await prisma.conversation.findUnique({
-    where: { vinculoId: vinculo.id },
-    include: {
-      messages: {
-        include: { sender: true },
-        orderBy: { createdAt: "asc" },
-      },
-    },
-  });
-
-  if (!conv) {
-    conv = await prisma.conversation.create({
-      data: { type: "VINCULO", vinculoId: vinculo.id },
+  const [vinculos, chatUnread] = await Promise.all([
+    prisma.vinculo.findMany({
+      where: { studentId: session!.id, status: "ATIVO" },
       include: {
-        messages: { include: { sender: true }, orderBy: { createdAt: "asc" } },
+        personal: true,
+        conversation: {
+          include: {
+            messages: { orderBy: { createdAt: "desc" }, take: 1 },
+          },
+        },
       },
-    });
-  }
+      orderBy: { personal: { name: "asc" } },
+    }),
+    getChatUnreadState(session!.id, "ALUNO"),
+  ]);
+
+  const contacts = vinculos.map((v) => ({
+    id: v.id,
+    name: v.personal.name,
+    href: `/aluno/chat/${v.id}`,
+    subtitle: v.personal.email,
+    searchFields: [v.personal.email, v.personal.name],
+    hasUnread: (chatUnread.byContactId[v.id] || 0) > 0,
+  }));
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-white">
-        Chat com {vinculo.personal.name}
-      </h2>
-      <ChatPanel
-        conversationId={conv.id}
-        currentUserId={session!.id}
-        messages={conv.messages.map((m) => ({
-          ...m,
-          createdAt: m.createdAt.toISOString(),
-        }))}
-      />
-    </div>
+    <ChatContactList
+      title="Meus Personais"
+      contacts={contacts}
+      selectedId={undefined}
+      emptyMessage="Nenhum personal vinculado ainda."
+      noResultsMessage="Nenhum personal encontrado."
+    />
   );
 }
