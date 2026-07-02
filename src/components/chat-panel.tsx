@@ -16,6 +16,7 @@ import {
   FileText,
   X,
   Download,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -95,6 +96,7 @@ export function ChatPanel({
   const [messages, setMessages] = useState(initial);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [lightboxAlt, setLightboxAlt] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -106,7 +108,7 @@ export function ChatPanel({
   }, [messages]);
 
   useEffect(() => {
-    markConversationReadAction(conversationId);
+    markConversationReadAction(conversationId).catch(() => {});
   }, [conversationId]);
 
   const openLightbox = useCallback((src: string, alt: string) => {
@@ -114,14 +116,21 @@ export function ChatPanel({
     setLightboxAlt(alt);
   }, []);
 
+  function clearError() {
+    setErrorMsg(null);
+  }
+
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     const msg = text.trim();
     if (!msg || sending || readOnly) return;
     setSending(true);
+    setErrorMsg(null);
     try {
       const res = await sendMessageAction(conversationId, msg);
-      if (res.success) {
+      if (res.error) {
+        setErrorMsg(res.error);
+      } else if (res.success) {
         setMessages((prev) => [
           ...prev,
           {
@@ -136,6 +145,8 @@ export function ChatPanel({
         ]);
         setText("");
       }
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro ao enviar mensagem.");
     } finally {
       setSending(false);
     }
@@ -152,18 +163,27 @@ export function ChatPanel({
     e.target.value = "";
 
     setSending(true);
+    setErrorMsg(null);
     try {
       const fd = new FormData();
       fd.append("file", file);
       const up = await uploadFileAction(fd);
+      if (up.error) {
+        setErrorMsg(up.error);
+        return;
+      }
       if (up.url) {
-        await sendMessageAction(
+        const res = await sendMessageAction(
           conversationId,
           type === "IMAGE" ? "📷 Imagem" : `📎 ${up.fileName}`,
           type,
           up.url,
           up.fileName
         );
+        if (res.error) {
+          setErrorMsg(res.error);
+          return;
+        }
         setMessages((prev) => [
           ...prev,
           {
@@ -177,6 +197,8 @@ export function ChatPanel({
           },
         ]);
       }
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro ao enviar arquivo.");
     } finally {
       setSending(false);
     }
@@ -211,29 +233,36 @@ export function ChatPanel({
                 {m.type === "IMAGE" && m.fileUrl ? (
                   <button
                     type="button"
-                    className="block cursor-pointer rounded-lg transition hover:opacity-80"
+                    className="group block cursor-pointer rounded-lg transition hover:opacity-80"
                     onClick={() => openLightbox(m.fileUrl!, m.content)}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={m.fileUrl}
                       alt={m.content}
-                      className="max-h-28 max-w-full rounded-lg object-cover"
+                      className="max-h-48 max-w-full rounded-lg object-cover"
                     />
-                    <span className="mt-1 block text-[11px] opacity-60">
-                      Clique para ampliar
+                    <span className="mt-1 block text-[11px] opacity-60 group-hover:opacity-100 transition">
+                      🖼️ {m.fileName || "Imagem"} — Clique para ampliar
                     </span>
                   </button>
-                ) : /* FILE message — file card with icon */
+                ) : /* FILE message — file card with icon + download */
                 m.fileUrl ? (
                   <button
                     type="button"
-                    className="flex items-center gap-2 rounded-lg bg-white/5 p-2 transition hover:bg-white/10"
+                    className="flex w-full items-center gap-2 rounded-lg bg-white/5 p-3 text-left transition hover:bg-white/10"
                     onClick={() => {
                       if (isImageMimeType(m.fileUrl!)) {
                         openLightbox(m.fileUrl!, m.fileName || "Arquivo");
                       } else {
-                        window.open(m.fileUrl!, "_blank");
+                        const a = document.createElement("a");
+                        a.href = m.fileUrl!;
+                        a.download = m.fileName || "arquivo";
+                        a.target = "_blank";
+                        a.rel = "noopener noreferrer";
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
                       }
                     }}
                   >
@@ -244,15 +273,15 @@ export function ChatPanel({
                         <FileText className="h-5 w-5" />
                       )}
                     </div>
-                    <div className="min-w-0 text-left">
+                    <div className="min-w-0 flex-1">
                       <p className="truncate text-xs font-medium">
                         {m.fileName || m.content}
                       </p>
                       <p className="text-[10px] opacity-50">
-                        {getFileExtension(m.fileName)} • Clique para abrir
+                        {getFileExtension(m.fileName)} • Clique para baixar
                       </p>
                     </div>
-                    <Download className="ml-auto h-4 w-4 shrink-0 opacity-40" />
+                    <Download className="h-4 w-4 shrink-0 opacity-40" />
                   </button>
                 ) : (
                   <p className="whitespace-pre-wrap break-words">{m.content}</p>
@@ -272,6 +301,24 @@ export function ChatPanel({
         })}
         <div ref={bottomRef} />
       </div>
+
+      {/* Error banner */}
+      {errorMsg && (
+        <div className="flex items-center gap-2 border-t border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">{errorMsg}</span>
+          <button onClick={clearError} className="text-red-400 hover:text-red-200">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Sending indicator */}
+      {sending && (
+        <div className="border-t border-surface-border bg-brand-600/10 px-4 py-1.5 text-xs text-brand-300">
+          Enviando...
+        </div>
+      )}
 
       {/* Input bar */}
       {!readOnly && (
@@ -304,7 +351,7 @@ export function ChatPanel({
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                handleSend(e);
+                handleSend(e as unknown as React.FormEvent);
               }
             }}
             placeholder="Digite sua mensagem..."
