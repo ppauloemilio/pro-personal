@@ -261,7 +261,7 @@ export default async function AdminPersonaisPage({
 
 
 
-            <Link href={`/admin/chat/personal/${p.id}`}>
+            <Link href={`/admin/chat?personalId=${p.id}`}>
 
               <Button variant="outline" size="sm">
 

@@ -2,8 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { promises as fs } from "fs";
-import path from "path";
 import { prisma } from "./prisma";
 import {
   createSession,
@@ -1078,29 +1076,15 @@ export async function requestCategoryFormAction(formData: FormData): Promise<voi
 }
 
 export async function uploadFileAction(formData: FormData) {
-  const session = await getSession();
-  if (!session) throw new Error("UNAUTHORIZED");
-
   const file = formData.get("file") as File | null;
   if (!file) return { error: "Arquivo não enviado." };
 
-  // Max 8MB
-  const MAX_SIZE = 8 * 1024 * 1024;
-  if (file.size > MAX_SIZE) return { error: "Arquivo muito grande. Máximo: 8MB." };
-
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
+  const base64 = buffer.toString("base64");
+  const mimeType = file.type || "application/octet-stream";
+  const url = `data:${mimeType};base64,${base64}`;
 
-  // Save to disk
-  const uploadDir = path.join(process.env.DATA_DIR || "/data", "chat-uploads");
-  await fs.mkdir(uploadDir, { recursive: true });
-
-  const ext = path.extname(file.name) || "";
-  const safeName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
-  const filePath = path.join(uploadDir, safeName);
-  await fs.writeFile(filePath, buffer);
-
-  const url = `/api/chat-files?f=${safeName}`;
   return { url, fileName: file.name };
 }
 
