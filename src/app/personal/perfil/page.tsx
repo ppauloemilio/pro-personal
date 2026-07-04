@@ -5,12 +5,12 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   updatePersonalProfileAction,
-  saveLocationAction,
   saveAvailabilityAction,
   requestCategoryFormAction,
   seedDefaultAvailabilityAction,
 } from "@/lib/actions";
 import { LocationList } from "@/components/personal/location-list";
+import { LocationForm } from "@/components/personal/location-form";
 import { AvailabilityList } from "@/components/personal/availability-list";
 import { AvatarUpload } from "@/components/personal/avatar-upload";
 import { PortfolioManager } from "@/components/personal/portfolio-manager";
@@ -61,12 +61,12 @@ export default async function PersonalPerfilPage({
 
   const user = await prisma.user.findUnique({ where: { id: session!.id } });
 
-  // Get all unique location names for auto-complete
-  const allLocationNames = await prisma.location.findMany({
-    select: { name: true, address: true, city: true },
+  // Get all existing locations for the selector (from all personais)
+  const allExistingLocations = await prisma.location.findMany({
+    select: { name: true, address: true, city: true, mapUrl: true },
     distinct: ["name"],
     orderBy: { name: "asc" },
-    take: 50,
+    take: 100,
   });
 
   const selectedIds = new Set(profile?.categories.map((c) => c.categoryId));
@@ -179,29 +179,9 @@ export default async function PersonalPerfilPage({
           />
         </div>
         {access.canWrite && (
-          <form action={saveLocationAction} className="mt-4 grid gap-3">
-            <div className="relative">
-              <input
-                name="name"
-                required
-                placeholder="Nome da academia"
-                className="w-full"
-                list="academia-names"
-                autoComplete="off"
-              />
-              <datalist id="academia-names">
-                {allLocationNames.map((l) => (
-                  <option key={l.name} value={l.name} />
-                ))}
-              </datalist>
-            </div>
-            <input name="address" required placeholder="Endereço completo" className="w-full" />
-            <input name="city" placeholder="Cidade" className="w-full" />
-            <input name="mapUrl" placeholder="Link do mapa (opcional)" className="w-full" />
-            <Button type="submit" variant="secondary">
-              + Adicionar local
-            </Button>
-          </form>
+          <div className="mt-4">
+            <LocationForm existingLocations={allExistingLocations} />
+          </div>
         )}
       </Card>
 
