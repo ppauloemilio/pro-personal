@@ -112,10 +112,10 @@ export async function getPreapproval(
   });
 }
 
-/** Full flow: create plan + subscribe, returns checkout URL */
+/** Full flow: create plan + subscribe, returns checkout URL or direct activation for sandbox */
 export async function createSubscriptionForPersonal(
   userId: string
-): Promise<{ checkoutUrl: string; planId: string; subscriptionId: string }> {
+): Promise<{ checkoutUrl: string; planId: string; subscriptionId: string; activatedDirectly?: boolean }> {
   const token = await getMercadoPagoAccessToken();
   if (!token) throw new Error("Mercado Pago access token não configurado.");
 
@@ -166,6 +166,25 @@ export async function createSubscriptionForPersonal(
   const checkoutUrl = sandbox
     ? (preapproval.sandbox_init_point || preapproval.init_point || "")
     : (preapproval.init_point || preapproval.sandbox_init_point || "");
+
+  // Sandbox fallback: MP sandbox preapproval doesn't generate a checkout URL.
+  // Activate the subscription directly in the DB so testing still works.
+  if (sandbox && !checkoutUrl) {
+    console.log("[MP Sandbox] No checkout URL returned. Activating subscription directly.");
+    await prisma.subscription.update({
+      where: { userId },
+      data: {
+        status: "ATIVA",
+        activatedAt: new Date(),
+      },
+    });
+    return {
+      checkoutUrl: "",
+      planId: plan.id,
+      subscriptionId: preapproval.id,
+      activatedDirectly: true,
+    };
+  }
 
   return {
     checkoutUrl,

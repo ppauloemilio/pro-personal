@@ -1915,14 +1915,17 @@ export async function saveAppConfigFormAction(formData: FormData): Promise<void>
 // MERCADO PAGO: SUBSCRIPTION
 // ============================
 
-export async function createMercadoPagoSubscriptionAction(): Promise<{ checkoutUrl: string } | { error: string }> {
+export async function createMercadoPagoSubscriptionAction(): Promise<{ checkoutUrl: string; activatedDirectly?: boolean } | { error: string }> {
   const session = await getSession();
   if (!session || session.role !== "PERSONAL") throw new Error("FORBIDDEN");
 
   try {
     const { createSubscriptionForPersonal } = await import("./mercadopago");
     const result = await createSubscriptionForPersonal(session.id);
-    return { checkoutUrl: result.checkoutUrl };
+    if (result.activatedDirectly) {
+      revalidatePath("/personal/assinatura");
+    }
+    return { checkoutUrl: result.checkoutUrl, activatedDirectly: result.activatedDirectly };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Erro ao criar assinatura no Mercado Pago.";
     return { error: message };
