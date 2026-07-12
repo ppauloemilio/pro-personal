@@ -14,6 +14,9 @@ export type PersonalAccess = {
   activeStudents: number;
   isTrial: boolean;
   isReadOnly: boolean;
+  isCancelled: boolean;
+  currentPeriodEnd: Date | null;
+  planTier: string;
 };
 
 export async function countActiveStudents(personalUserId: string) {
@@ -50,8 +53,13 @@ export async function syncSubscription(personalUserId: string) {
   const now = new Date();
   const trialExpired = sub.status === "TRIAL" && sub.trialEndsAt < now;
 
+  // Cancelled subscription that has expired → move to LEITURA
+  const cancelledExpired =
+    sub.status === "CANCELADA" && sub.currentPeriodEnd && sub.currentPeriodEnd < now;
+
   let status = sub.status;
   if (trialExpired && status === "TRIAL") status = "LEITURA";
+  if (cancelledExpired) status = "LEITURA";
 
   await prisma.subscription.update({
     where: { userId: personalUserId },
@@ -59,7 +67,7 @@ export async function syncSubscription(personalUserId: string) {
       status,
       activeStudents,
       monthlyAmount: pricing.amount,
-      planLabel: sub.status === "TRIAL" ? "Trial" : pricing.label,
+      planLabel: status === "TRIAL" ? "Trial" : pricing.label,
     },
   });
 
@@ -84,14 +92,22 @@ export async function getPersonalAccess(
       activeStudents: 0,
       isTrial: false,
       isReadOnly: true,
+      isCancelled: false,
+      currentPeriodEnd: null,
+      planTier: "starter",
     };
   }
 
   const isTrial = sub.status === "TRIAL" && sub.trialEndsAt >= now;
   const isActive = sub.status === "ATIVA";
+  const isCancelled = sub.status === "CANCELADA";
   const isReadOnly = sub.status === "LEITURA";
 
-  const canOperate = isTrial || isActive;
+  // Cancelled but still within period → can operate
+  const cancelledStillActive =
+    isCancelled && sub.currentPeriodEnd && sub.currentPeriodEnd >= now;
+
+  const canOperate = isTrial || isActive || cancelledStillActive;
 
   return {
     canWrite: canOperate,
@@ -104,6 +120,9 @@ export async function getPersonalAccess(
     activeStudents: sub.activeStudents,
     isTrial,
     isReadOnly,
+    isCancelled,
+    currentPeriodEnd: sub.currentPeriodEnd,
+    planTier: sub.planTier,
   };
 }
 

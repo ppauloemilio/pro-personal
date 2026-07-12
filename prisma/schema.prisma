@@ -7,6 +7,293 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id                 String            @id @default(cuid())
+  email              String            @unique
+  passwordHash       String
+  name               String
+  role               UserRole
+  status             UserStatus        @default(ATIVO)
+  avatarUrl          String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  categoryRequests   CategoryRequest[]
+  sentMessages       Message[]         @relation("MessageSender")
+  notifications      Notification[]    @relation("NotificationRecipient")
+  personalProfile    PersonalProfile?
+  studentProfile     StudentProfile?
+  subscription       Subscription?
+  vinculosAsStudent  Vinculo[]         @relation("StudentVinculos")
+  vinculosAsPersonal Vinculo[]         @relation("PersonalVinculos")
+}
+
+model PersonalProfile {
+  id               String             @id @default(cuid())
+  userId           String             @unique
+  bio              String?
+  publicSlug       String             @unique
+  isPublic         Boolean            @default(true)
+  inviteCode       String             @unique
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  categoryRequests CategoryRequest[]
+  locations        Location[]
+  categories       PersonalCategory[]
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  portfolioPhotos  PortfolioPhoto[]
+  blocks           ScheduleBlock[]
+}
+
+model StudentProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  activeVinculoId String?
+  phone           String?
+  age             Int?
+  observation     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Category {
+  id              String             @id @default(cuid())
+  name            String             @unique
+  slug            String             @unique
+  createdAt       DateTime           @default(now())
+  personals       PersonalCategory[]
+  portfolioPhotos PortfolioPhoto[]
+}
+
+model PersonalCategory {
+  personalId String
+  categoryId String
+  category   Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  personal   PersonalProfile @relation(fields: [personalId], references: [id], onDelete: Cascade)
+
+  @@id([personalId, categoryId])
+}
+
+model CategoryRequest {
+  id           String                @id @default(cuid())
+  personalId   String
+  requestedBy  String
+  name         String
+  description  String?
+  status       CategoryRequestStatus @default(EM_ANALISE)
+  rejectReason String?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  user         User                  @relation(fields: [requestedBy], references: [id], onDelete: Cascade)
+  personal     PersonalProfile       @relation(fields: [personalId], references: [id], onDelete: Cascade)
+}
+
+model Location {
+  id           String             @id @default(cuid())
+  personalId   String
+  name         String
+  address      String
+  city         String?
+  mapUrl       String?
+  notes        String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  availability AvailabilityRule[]
+  bookings     Booking[]
+  personal     PersonalProfile    @relation(fields: [personalId], references: [id], onDelete: Cascade)
+}
+
+model AvailabilityRule {
+  id          String   @id @default(cuid())
+  personalId  String
+  locationId  String
+  dayOfWeek   Int
+  startTime   String
+  endTime     String
+  slotMinutes Int      @default(60)
+  location    Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+}
+
+model ScheduleBlock {
+  id         String          @id @default(cuid())
+  personalId String
+  startAt    DateTime
+  endAt      DateTime
+  reason     String?
+  personal   PersonalProfile @relation(fields: [personalId], references: [id], onDelete: Cascade)
+}
+
+model Vinculo {
+  id           String        @id @default(cuid())
+  personalId   String
+  studentId    String
+  status       VinculoStatus @default(PENDENTE)
+  origem       VinculoOrigem
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  endReason    String?
+  endedAt      DateTime?
+  endedBy      String?
+  bookings     Booking[]
+  conversation Conversation?
+  student      User          @relation("StudentVinculos", fields: [studentId], references: [id], onDelete: Cascade)
+  personal     User          @relation("PersonalVinculos", fields: [personalId], references: [id], onDelete: Cascade)
+  workouts     Workout[]
+
+  @@unique([personalId, studentId])
+}
+
+model PortfolioPhoto {
+  id         String          @id @default(cuid())
+  personalId String
+  categoryId String
+  photoUrl   String
+  caption    String?
+  orderIndex Int             @default(0)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  category   Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  personal   PersonalProfile @relation(fields: [personalId], references: [id], onDelete: Cascade)
+
+  @@index([personalId, categoryId])
+}
+
+model Booking {
+  id              String        @id @default(cuid())
+  vinculoId       String
+  locationId      String
+  startAt         DateTime
+  endAt           DateTime
+  status          BookingStatus @default(PENDENTE)
+  locationName    String
+  locationAddress String
+  locationMapUrl  String?
+  cancelReason    String?
+  rescheduledFrom String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  location        Location      @relation(fields: [locationId], references: [id])
+  vinculo         Vinculo       @relation(fields: [vinculoId], references: [id], onDelete: Cascade)
+}
+
+model Workout {
+  id        String     @id @default(cuid())
+  vinculoId String
+  title     String
+  notes     String?
+  scheduled DateTime?
+  completed Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  exercises Exercise[]
+  vinculo   Vinculo    @relation(fields: [vinculoId], references: [id], onDelete: Cascade)
+}
+
+model Exercise {
+  id          String        @id @default(cuid())
+  workoutId   String
+  name        String
+  sets        Int
+  reps        String
+  load        String?
+  restSeconds Int?
+  notes       String?
+  orderIndex  Int           @default(0)
+  workout     Workout       @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  logs        ExerciseLog[]
+}
+
+model ExerciseLog {
+  id          String            @id @default(cuid())
+  exerciseId  String
+  completed   Boolean           @default(false)
+  actualSets  Int?
+  actualReps  String?
+  actualLoad  String?
+  studentNote String?
+  completedAt DateTime?
+  comments    ExerciseComment[]
+  exercise    Exercise          @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+}
+
+model ExerciseComment {
+  id        String      @id @default(cuid())
+  logId     String
+  authorId  String
+  text      String
+  createdAt DateTime    @default(now())
+  log       ExerciseLog @relation(fields: [logId], references: [id], onDelete: Cascade)
+}
+
+model Conversation {
+  id            String           @id @default(cuid())
+  type          ConversationType
+  vinculoId     String?          @unique
+  personalId    String?
+  studentId     String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  vinculo       Vinculo?         @relation(fields: [vinculoId], references: [id], onDelete: Cascade)
+  messages      Message[]
+  notifications Notification[]
+
+  @@unique([type, personalId])
+  @@unique([type, studentId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  senderId       String
+  type           MessageType  @default(TEXT)
+  content        String
+  fileUrl        String?
+  fileName       String?
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id             String           @id @default(cuid())
+  userId         String
+  type           NotificationType
+  title          String
+  body           String
+  link           String?
+  conversationId String?
+  read           Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+  conversation   Conversation?    @relation(fields: [conversationId], references: [id])
+  user           User             @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Subscription {
+  id               String             @id @default(cuid())
+  userId           String             @unique
+  status           SubscriptionStatus @default(TRIAL)
+  trialEndsAt      DateTime
+  activeStudents   Int                @default(0)
+  monthlyAmount    Float              @default(0)
+  planLabel        String             @default("Trial")
+  planTier         String             @default("starter")
+  activatedAt      DateTime?
+  currentPeriodEnd DateTime?
+  cancelledAt      DateTime?
+  mpSubscriptionId String?
+  mpPlanId         String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AppConfig {
+  key       String   @id
+  value     String   @default("")
+  updatedAt DateTime @updatedAt
+}
+
 enum UserRole {
   PERSONAL
   ALUNO
@@ -48,6 +335,7 @@ enum CategoryRequestStatus {
 enum SubscriptionStatus {
   TRIAL
   ATIVA
+  CANCELADA
   LEITURA
 }
 
@@ -79,312 +367,4 @@ enum NotificationType {
   CHAT_MESSAGE
   TRIAL_EXPIRING
   SYSTEM
-}
-
-model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  passwordHash String
-  name         String
-  role         UserRole
-  status       UserStatus @default(ATIVO)
-  avatarUrl    String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-
-  personalProfile PersonalProfile?
-  studentProfile  StudentProfile?
-  subscription    Subscription?
-
-  vinculosAsPersonal Vinculo[] @relation("PersonalVinculos")
-  vinculosAsStudent  Vinculo[] @relation("StudentVinculos")
-
-  sentMessages     Message[]      @relation("MessageSender")
-  notifications    Notification[] @relation("NotificationRecipient")
-  categoryRequests CategoryRequest[]
-}
-
-model PersonalProfile {
-  id           String   @id @default(cuid())
-  userId       String   @unique
-  bio          String?
-  publicSlug   String   @unique
-  isPublic     Boolean  @default(true)
-  inviteCode   String   @unique
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  categories       PersonalCategory[]
-  locations        Location[]
-  blocks           ScheduleBlock[]
-  categoryRequests CategoryRequest[]
-  portfolioPhotos  PortfolioPhoto[]
-}
-
-model StudentProfile {
-  id               String   @id @default(cuid())
-  userId           String   @unique
-  activeVinculoId   String?
-  phone            String?
-  age              Int?
-  observation      String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model Category {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  slug      String   @unique
-  createdAt DateTime @default(now())
-
-  personals      PersonalCategory[]
-  portfolioPhotos PortfolioPhoto[]
-}
-
-model PersonalCategory {
-  personalId String
-  categoryId String
-
-  personal PersonalProfile @relation(fields: [personalId], references: [id], onDelete: Cascade)
-  category Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
-  @@id([personalId, categoryId])
-}
-
-model CategoryRequest {
-  id          String                @id @default(cuid())
-  personalId  String
-  requestedBy String
-  name        String
-  description String?
-  status      CategoryRequestStatus @default(EM_ANALISE)
-  rejectReason String?
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
-
-  personal PersonalProfile @relation(fields: [personalId], references: [id], onDelete: Cascade)
-  user     User            @relation(fields: [requestedBy], references: [id], onDelete: Cascade)
-}
-
-model Location {
-  id         String   @id @default(cuid())
-  personalId String
-  name       String
-  address    String
-  city       String?
-  mapUrl     String?
-  notes      String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  personal     PersonalProfile    @relation(fields: [personalId], references: [id], onDelete: Cascade)
-  availability AvailabilityRule[]
-  bookings     Booking[]
-}
-
-model AvailabilityRule {
-  id           String @id @default(cuid())
-  personalId   String
-  locationId   String
-  dayOfWeek    Int
-  startTime    String
-  endTime      String
-  slotMinutes  Int    @default(60)
-
-  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
-}
-
-model ScheduleBlock {
-  id         String   @id @default(cuid())
-  personalId String
-  startAt    DateTime
-  endAt      DateTime
-  reason     String?
-
-  personal PersonalProfile @relation(fields: [personalId], references: [id], onDelete: Cascade)
-}
-
-model Vinculo {
-  id            String        @id @default(cuid())
-  personalId    String
-  studentId     String
-  status        VinculoStatus @default(PENDENTE)
-  origem        VinculoOrigem
-  endedAt       DateTime?
-  endReason     String?
-  endedBy       String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-
-  personal User @relation("PersonalVinculos", fields: [personalId], references: [id], onDelete: Cascade)
-  student  User @relation("StudentVinculos", fields: [studentId], references: [id], onDelete: Cascade)
-
-  bookings     Booking[]
-  workouts     Workout[]
-  conversation Conversation?
-
-  @@unique([personalId, studentId])
-}
-
-model PortfolioPhoto {
-  id           String   @id @default(cuid())
-  personalId   String
-  categoryId   String
-  photoUrl     String
-  caption      String?
-  orderIndex   Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  personal PersonalProfile @relation(fields: [personalId], references: [id], onDelete: Cascade)
-  category Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
-  @@index([personalId, categoryId])
-}
-
-model Booking {
-  id              String        @id @default(cuid())
-  vinculoId       String
-  locationId      String
-  startAt         DateTime
-  endAt           DateTime
-  status          BookingStatus @default(PENDENTE)
-  locationName    String
-  locationAddress String
-  locationMapUrl  String?
-  cancelReason    String?
-  rescheduledFrom String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  vinculo  Vinculo  @relation(fields: [vinculoId], references: [id], onDelete: Cascade)
-  location Location @relation(fields: [locationId], references: [id])
-}
-
-model Workout {
-  id        String   @id @default(cuid())
-  vinculoId String
-  title     String
-  notes     String?
-  scheduled DateTime?
-  completed Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  vinculo   Vinculo    @relation(fields: [vinculoId], references: [id], onDelete: Cascade)
-  exercises Exercise[]
-}
-
-model Exercise {
-  id           String  @id @default(cuid())
-  workoutId    String
-  name         String
-  sets         Int
-  reps         String
-  load         String?
-  restSeconds  Int?
-  notes        String?
-  orderIndex   Int     @default(0)
-
-  workout Workout       @relation(fields: [workoutId], references: [id], onDelete: Cascade)
-  logs    ExerciseLog[]
-}
-
-model ExerciseLog {
-  id          String   @id @default(cuid())
-  exerciseId  String
-  completed   Boolean  @default(false)
-  actualSets  Int?
-  actualReps  String?
-  actualLoad  String?
-  studentNote String?
-  completedAt DateTime?
-
-  exercise Exercise          @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
-  comments ExerciseComment[]
-}
-
-model ExerciseComment {
-  id        String   @id @default(cuid())
-  logId     String
-  authorId  String
-  text      String
-  createdAt DateTime @default(now())
-
-  log ExerciseLog @relation(fields: [logId], references: [id], onDelete: Cascade)
-}
-
-model Conversation {
-  id         String           @id @default(cuid())
-  type       ConversationType
-  vinculoId  String?          @unique
-  personalId String?
-  studentId  String?
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
-
-  vinculo       Vinculo?       @relation(fields: [vinculoId], references: [id], onDelete: Cascade)
-  messages      Message[]
-  notifications Notification[]
-
-  @@unique([type, personalId])
-  @@unique([type, studentId])
-}
-
-model Message {
-  id             String      @id @default(cuid())
-  conversationId String
-  senderId       String
-  type           MessageType @default(TEXT)
-  content        String
-  fileUrl        String?
-  fileName       String?
-  readAt         DateTime?
-  createdAt      DateTime    @default(now())
-
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender       User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
-}
-
-model Notification {
-  id             String           @id @default(cuid())
-  userId         String
-  type           NotificationType
-  title          String
-  body           String
-  link           String?
-  conversationId String?
-  read           Boolean          @default(false)
-  createdAt      DateTime         @default(now())
-
-  user         User          @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
-  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
-}
-
-model Subscription {
-  id                 String             @id @default(cuid())
-  userId             String             @unique
-  status             SubscriptionStatus @default(TRIAL)
-  trialEndsAt        DateTime
-  activeStudents     Int                @default(0)
-  monthlyAmount      Float              @default(0)
-  planLabel          String             @default("Trial")
-  activatedAt        DateTime?
-  mpSubscriptionId   String?
-  mpPlanId           String?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model AppConfig {
-  key       String   @id
-  value     String   @default("")
-  updatedAt DateTime @updatedAt
 }

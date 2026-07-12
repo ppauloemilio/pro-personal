@@ -708,13 +708,22 @@ export async function markConversationReadAction(conversationId: string) {
   return { success: true };
 }
 
-export async function activateSubscriptionAction(): Promise<void> {
+export async function activateSubscriptionAction(tier?: string): Promise<void> {
   const session = await getSession();
   if (!session || session.role !== "PERSONAL") throw new Error("FORBIDDEN");
 
+  const currentPeriodEnd = new Date();
+  currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
+
   await prisma.subscription.update({
     where: { userId: session.id },
-    data: { status: "ATIVA", activatedAt: new Date() },
+    data: {
+      status: "ATIVA",
+      activatedAt: new Date(),
+      planTier: tier || "starter",
+      currentPeriodEnd,
+      cancelledAt: null,
+    },
   });
 
   revalidatePath("/personal/assinatura");
@@ -1915,13 +1924,13 @@ export async function saveAppConfigFormAction(formData: FormData): Promise<void>
 // MERCADO PAGO: SUBSCRIPTION
 // ============================
 
-export async function createMercadoPagoSubscriptionAction(): Promise<{ checkoutUrl: string; activatedDirectly?: boolean } | { error: string }> {
+export async function createMercadoPagoSubscriptionAction(tier: string): Promise<{ checkoutUrl: string; activatedDirectly?: boolean } | { error: string }> {
   const session = await getSession();
   if (!session || session.role !== "PERSONAL") throw new Error("FORBIDDEN");
 
   try {
     const { createSubscriptionForPersonal } = await import("./mercadopago");
-    const result = await createSubscriptionForPersonal(session.id);
+    const result = await createSubscriptionForPersonal(session.id, tier);
     if (result.activatedDirectly) {
       revalidatePath("/personal/assinatura");
     }
@@ -1937,12 +1946,32 @@ export async function cancelMercadoPagoSubscriptionAction(): Promise<{ success: 
   if (!session || session.role !== "PERSONAL") throw new Error("FORBIDDEN");
 
   try {
-    const { cancelSubscriptionForPersonal } = await import("./mercadopago");
-    await cancelSubscriptionForPersonal(session.id);
+    const sub = await prisma.subscription.findUnique({ where: { userId: session.id } });
+    if (!sub) return { error: "Assinatura não encontrada." };
+
+    // Cancel in MP if exists
+    if (sub.mpSubscriptionId) {
+      const { cancelSubscriptionInMP } = await import("./mercadopago");
+      await cancelSubscriptionInMP(sub.mpSubscriptionId);
+    }
+
+    // Set status to CANCELADA but keep active until currentPeriodEnd
+    const periodEnd = sub.currentPeriodEnd ?? new Date();
+
+    await prisma.subscription.update({
+      where: { userId: session.id },
+      data: {
+        status: "CANCELADA",
+        cancelledAt: new Date(),
+        mpSubscriptionId: null,
+        mpPlanId: null,
+      },
+    });
+
     revalidatePath("/personal/assinatura");
-    return { success: true };
+    return { success: true, periodEnd: periodEnd.toISOString() };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Erro ao cancelar assinatura no Mercado Pago.";
+    const message = err instanceof Error ? err.message : "Erro ao cancelar assinatura.";
     return { error: message };
   }
 }

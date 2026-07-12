@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { BookingCard } from "@/components/booking-card";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Users, Calendar, AlertCircle } from "lucide-react";
+import { Users, Calendar, AlertCircle, TrendingUp } from "lucide-react";
 import { AcceptVinculoForm } from "@/components/forms/action-forms";
 
 export default async function PersonalDashboardPage() {
@@ -35,6 +35,38 @@ export default async function PersonalDashboardPage() {
           </div>
         </div>
       )}
+
+      {access.canWrite && !access.isTrial && !access.isCancelled && (() => {
+        const students = access.activeStudents;
+        const tier = access.planTier;
+        let limit = tier === "starter" ? 10 : tier === "pro" ? 30 : 999;
+        let nextPlan = tier === "starter" ? "Pro" : tier === "pro" ? "Pro+" : null;
+        let atLimit = students >= limit && nextPlan !== null;
+        let nearLimit = students >= limit - 2 && !atLimit && nextPlan !== null;
+        if (atLimit || nearLimit) {
+          return (
+            <div className="flex items-center gap-3 rounded-2xl border border-brand-500/30 bg-brand-500/10 p-4 text-brand-200">
+              <TrendingUp className="h-5 w-5 shrink-0" />
+              <div>
+                <p className="font-medium">
+                  {atLimit
+                    ? `Você atingiu o limite do plano ${access.planLabel}!`
+                    : `Você está próximo do limite do plano ${access.planLabel}.`}
+                </p>
+                <p className="text-sm opacity-90">
+                  {atLimit
+                    ? `Faça upgrade para ${nextPlan} para continuar adicionando alunos.`
+                    : `Considere fazer upgrade para ${nextPlan} em breve.`}{" "}
+                  <Link href="/personal/assinatura" className="underline">
+                    Ver planos
+                  </Link>
+                </p>
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })()}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>

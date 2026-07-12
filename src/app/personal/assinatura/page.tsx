@@ -5,32 +5,52 @@ import { formatCurrency } from "@/lib/utils";
 import { getAppConfig } from "@/lib/app-config";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check } from "lucide-react";
+import { Check, Users, Zap, Crown } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import SubscriptionActions from "./subscription-actions";
+
+const PLANS = [
+  {
+    tier: "starter",
+    name: "Starter",
+    range: "1 a 10 alunos",
+    price: "R$ 20,00/mês",
+    priceNum: 20,
+    icon: Zap,
+    features: ["Até 10 alunos", "Agendamento", "Chat com alunos", "Treinos personalizados"],
+  },
+  {
+    tier: "pro",
+    name: "Pro",
+    range: "11 a 30 alunos",
+    price: "R$ 50,00/mês",
+    priceNum: 50,
+    icon: Users,
+    features: ["Até 30 alunos", "Agendamento", "Chat com alunos", "Treinos personalizados", "Portfólio de fotos"],
+  },
+  {
+    tier: "pro_plus",
+    name: "Pro+",
+    range: "Acima de 30 alunos",
+    price: "R$ 50,00 + R$ 1,50 por aluno excedente/mês",
+    priceNum: 50,
+    icon: Crown,
+    features: ["Alunos ilimitados", "Tudo do Pro", "R$ 1,50 por aluno acima de 30", "Suporte prioritário"],
+  },
+];
 
 export default async function PersonalAssinaturaPage() {
   const session = await getSession();
   const access = await getPersonalAccess(session!.id);
   const pricing = await calculateMonthlyPrice(access.activeStudents);
 
-  // Check if MP token is configured
   const mpToken = await getAppConfig("mp_access_token");
   const hasMPToken = !!mpToken && mpToken.trim().length > 0;
 
-  const tiers = [
-    { name: "Starter", range: "1 a 10 alunos", price: "R$ 20/mês" },
-    { name: "Pro", range: "11 a 30 alunos", price: "R$ 50/mês" },
-    {
-      name: "Pro+",
-      range: "Acima de 30",
-      price: "R$ 50 + R$ 1,50 por aluno excedente",
-    },
-  ];
-
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
+    <div className="mx-auto max-w-3xl space-y-8">
+      {/* Current subscription card */}
       <Card className="border-brand-500/30 bg-brand-500/5">
         <CardTitle>Sua assinatura</CardTitle>
         <div className="mt-4 flex flex-wrap gap-3">
@@ -40,7 +60,12 @@ export default async function PersonalAssinaturaPage() {
           <Badge variant="default">
             {access.activeStudents} alunos ativos
           </Badge>
-          {!access.isTrial && !access.isReadOnly && (
+          {access.isCancelled && access.currentPeriodEnd && (
+            <Badge variant="warning">
+              Cancelada — ativa até {format(access.currentPeriodEnd, "dd/MM/yyyy", { locale: ptBR })}
+            </Badge>
+          )}
+          {!access.isTrial && !access.isReadOnly && !access.isCancelled && (
             <Badge variant="success">Plano ativo</Badge>
           )}
         </div>
@@ -55,6 +80,12 @@ export default async function PersonalAssinaturaPage() {
             Trial até {format(access.trialEndsAt, "dd 'de' MMMM yyyy", { locale: ptBR })}
           </p>
         )}
+        {access.isCancelled && access.currentPeriodEnd && (
+          <p className="mt-2 text-sm text-amber-300">
+            Sua assinatura foi cancelada. O plano permanece ativo até{" "}
+            {format(access.currentPeriodEnd, "dd 'de' MMMM yyyy", { locale: ptBR })}.
+          </p>
+        )}
         {pricing.tier === "pro_plus" && (
           <p className="mt-2 text-sm text-brand-300">
             Excedente: {pricing.excess} alunos × R$ 1,50
@@ -64,16 +95,58 @@ export default async function PersonalAssinaturaPage() {
         <SubscriptionActions
           isTrial={access.isTrial}
           isReadOnly={access.isReadOnly}
+          isCancelled={access.isCancelled}
           hasMPToken={hasMPToken}
           trialEndsAt={access.trialEndsAt?.toISOString() ?? null}
+          currentPeriodEnd={access.currentPeriodEnd?.toISOString() ?? null}
         />
       </Card>
 
+      {/* Plan cards */}
+      <div>
+        <h2 className="mb-4 text-lg font-semibold text-white">Planos disponíveis</h2>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {PLANS.map((plan) => {
+            const Icon = plan.icon;
+            const isCurrent = access.planTier === plan.tier && !access.isTrial && !access.isReadOnly;
+            return (
+              <Card
+                key={plan.tier}
+                className={`relative ${isCurrent ? "border-brand-500 ring-1 ring-brand-500" : ""}`}
+              >
+                {isCurrent && (
+                  <span className="absolute -top-2 right-3 rounded-full bg-brand-500 px-2 py-0.5 text-xs font-bold text-white">
+                    Atual
+                  </span>
+                )}
+                <div className="flex items-center gap-2">
+                  <Icon className="h-5 w-5 text-brand-400" />
+                  <h3 className="font-semibold text-white">{plan.name}</h3>
+                </div>
+                <p className="mt-2 text-sm text-slate-400">{plan.range}</p>
+                <p className="mt-1 text-lg font-bold text-brand-300">{plan.price}</p>
+                <ul className="mt-3 space-y-1">
+                  {plan.features.map((f) => (
+                    <li key={f} className="flex items-center gap-2 text-sm text-slate-300">
+                      <Check className="h-3.5 w-3.5 text-brand-400" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Simulator */}
       <Card>
         <CardTitle>Simulador de planos</CardTitle>
-        <div className="mt-4 space-y-4">
-          {(await Promise.all([5, 15, 35, 50].map(async (n) => {
-            const p = await calculateMonthlyPrice(n);
+        <div className="mt-4 space-y-3">
+          {[5, 10, 15, 30, 35, 50].map((n) => {
+            const p = calculateMonthlyPriceSync(n, {
+              starter: 20, pro: 50, proPlusBase: 50, proPlusExcess: 1.5,
+            });
             return (
               <div
                 key={n}
@@ -85,24 +158,20 @@ export default async function PersonalAssinaturaPage() {
                 </span>
               </div>
             );
-          })))}
+          })}
         </div>
       </Card>
-
-      <div className="grid gap-4">
-        {tiers.map((t) => (
-          <Card key={t.name}>
-            <div className="flex items-start gap-3">
-              <Check className="mt-1 h-5 w-5 text-brand-400" />
-              <div>
-                <p className="font-semibold text-white">{t.name}</p>
-                <p className="text-sm text-slate-400">{t.range}</p>
-                <p className="text-sm text-brand-300">{t.price}</p>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
     </div>
   );
+}
+
+function calculateMonthlyPriceSync(
+  activeStudents: number,
+  prices: { starter: number; pro: number; proPlusBase: number; proPlusExcess: number }
+) {
+  const A = activeStudents;
+  if (A <= 10) return { tier: "starter" as const, label: "Starter", amount: prices.starter, excess: 0 };
+  if (A <= 30) return { tier: "pro" as const, label: "Pro", amount: prices.pro, excess: 0 };
+  const E = A - 30;
+  return { tier: "pro_plus" as const, label: "Pro+", amount: prices.proPlusBase + E * prices.proPlusExcess, excess: E };
 }
