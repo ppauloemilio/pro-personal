@@ -105,7 +105,7 @@ export async function getPersonalAccess(
 
   // Cancelled but still within period → can operate
   const cancelledStillActive =
-    isCancelled && sub.currentPeriodEnd && sub.currentPeriodEnd >= now;
+    isCancelled && !!sub.currentPeriodEnd && sub.currentPeriodEnd >= now;
 
   const canOperate = isTrial || isActive || cancelledStillActive;
 
