@@ -1941,7 +1941,7 @@ export async function createMercadoPagoSubscriptionAction(tier: string): Promise
   }
 }
 
-export async function cancelMercadoPagoSubscriptionAction(): Promise<{ success: boolean } | { error: string }> {
+export async function cancelMercadoPagoSubscriptionAction(): Promise<{ success: boolean; periodEnd?: string } | { error: string }> {
   const session = await getSession();
   if (!session || session.role !== "PERSONAL") throw new Error("FORBIDDEN");
 
