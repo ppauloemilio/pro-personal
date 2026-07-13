@@ -39,10 +39,10 @@ export default async function PersonalDashboardPage() {
       {access.canWrite && !access.isTrial && !access.isCancelled && (() => {
         const students = access.activeStudents;
         const tier = access.planTier;
-        let limit = tier === "starter" ? 10 : tier === "pro" ? 30 : 999;
-        let nextPlan = tier === "starter" ? "Pro" : tier === "pro" ? "Pro+" : null;
-        let atLimit = students >= limit && nextPlan !== null;
-        let nearLimit = students >= limit - 2 && !atLimit && nextPlan !== null;
+        const limit = tier === "starter" ? 10 : tier === "pro" ? 30 : 999;
+        const nextPlan = tier === "starter" ? "Pro" : tier === "pro" ? "Pro+" : null;
+        const atLimit = students >= limit && nextPlan !== null;
+        const nearLimit = students >= limit - 2 && !atLimit && nextPlan !== null;
         if (atLimit || nearLimit) {
           return (
             <div className="flex items-center gap-3 rounded-2xl border border-brand-500/30 bg-brand-500/10 p-4 text-brand-200">
