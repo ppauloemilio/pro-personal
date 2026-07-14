@@ -1088,6 +1088,11 @@ export async function uploadFileAction(formData: FormData) {
   const file = formData.get("file") as File | null;
   if (!file) return { error: "Arquivo não enviado." };
 
+  // 10MB server-side validation
+  if (file.size > 10 * 1024 * 1024) {
+    return { error: "Arquivo muito grande. Máximo: 10MB." };
+  }
+
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
   const base64 = buffer.toString("base64");

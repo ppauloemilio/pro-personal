@@ -159,6 +159,13 @@ export function ChatPanel({
     const file = e.target.files?.[0];
     if (!file || readOnly) return;
 
+    // 10MB client-side validation
+    if (file.size > 10 * 1024 * 1024) {
+      setErrorMsg("Arquivo muito grande. Máximo: 10MB.");
+      e.target.value = "";
+      return;
+    }
+
     // Reset input so same file can be re-selected
     e.target.value = "";
 

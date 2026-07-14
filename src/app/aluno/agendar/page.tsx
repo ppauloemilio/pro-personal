@@ -158,18 +158,6 @@ export default async function AlunoAgendarPage({
 
       <div className="flex flex-wrap items-center justify-between gap-3">
 
-        <Link href="/aluno/agendar">
-
-          <Button variant="ghost" size="sm">
-
-            <ArrowLeft className="h-4 w-4" />
-
-            Trocar personal
-
-          </Button>
-
-        </Link>
-
         <p className="text-sm text-slate-400">
 
           Agendando com{" "}
@@ -177,6 +165,22 @@ export default async function AlunoAgendarPage({
           <span className="font-medium text-white">{vinculo.personal.name}</span>
 
         </p>
+
+        {activeVinculos.length > 1 && (
+
+          <Link href="/aluno/agendar">
+
+            <Button variant="ghost" size="sm">
+
+              <ArrowLeft className="h-4 w-4" />
+
+              Trocar personal
+
+            </Button>
+
+          </Link>
+
+        )}
 
       </div>
 

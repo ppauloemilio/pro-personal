@@ -139,39 +139,6 @@ export default async function PersonalAssinaturaPage() {
         </div>
       </div>
 
-      {/* Simulator */}
-      <Card>
-        <CardTitle>Simulador de planos</CardTitle>
-        <div className="mt-4 space-y-3">
-          {[5, 10, 15, 30, 35, 50].map((n) => {
-            const p = calculateMonthlyPriceSync(n, {
-              starter: 20, pro: 50, proPlusBase: 50, proPlusExcess: 1.5,
-            });
-            return (
-              <div
-                key={n}
-                className="flex justify-between rounded-xl bg-surface-elevated/50 px-4 py-3 text-sm"
-              >
-                <span>{n} alunos → {p.label}</span>
-                <span className="font-medium text-brand-300">
-                  {formatCurrency(p.amount)}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
     </div>
   );
-}
-
-function calculateMonthlyPriceSync(
-  activeStudents: number,
-  prices: { starter: number; pro: number; proPlusBase: number; proPlusExcess: number }
-) {
-  const A = activeStudents;
-  if (A <= 10) return { tier: "starter" as const, label: "Starter", amount: prices.starter, excess: 0 };
-  if (A <= 30) return { tier: "pro" as const, label: "Pro", amount: prices.pro, excess: 0 };
-  const E = A - 30;
-  return { tier: "pro_plus" as const, label: "Pro+", amount: prices.proPlusBase + E * prices.proPlusExcess, excess: E };
 }
