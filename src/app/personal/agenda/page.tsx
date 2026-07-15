@@ -69,13 +69,13 @@ export default async function PersonalAgendaPage({
   // Compute available slots for the selected day
   let freeSlots: Awaited<ReturnType<typeof generateSlotsForRange>> = [];
   let dayBlocks: { id: string; startAt: Date; endAt: Date; reason: string | null }[] = [];
+  let personalLocations: { id: string; name: string; address: string; mapUrl: string | null }[] = [];
 
   if (selectedDate && profile) {
     const dayStart = startOfDay(parseISO(selectedDate));
 
     const availabilityRules = await prisma.availabilityRule.findMany({
       where: { personalId: profile.id },
-      include: { location: true },
     });
 
     const availInput = availabilityRules.map((r) => ({
@@ -84,9 +84,6 @@ export default async function PersonalAgendaPage({
       endTime: r.endTime,
       slotMinutes: r.slotMinutes,
       locationId: r.locationId,
-      locationName: r.location.name,
-      locationAddress: r.location.address,
-      locationMapUrl: r.location.mapUrl,
     }));
 
     const occupiedSlots = bookings
@@ -94,7 +91,6 @@ export default async function PersonalAgendaPage({
       .map((b) => ({
         startAt: b.startAt,
         endAt: b.endAt,
-        locationId: b.locationId,
       }));
 
     const blocksInput = scheduleBlocks
@@ -118,6 +114,16 @@ export default async function PersonalAgendaPage({
         format(bl.startAt, "yyyy-MM-dd") === selectedDate ||
         format(bl.endAt, "yyyy-MM-dd") === selectedDate
     );
+
+    personalLocations = (await prisma.personalProfile.findUnique({
+      where: { id: profile.id },
+      include: { locations: true },
+    }))?.locations.map((l) => ({
+      id: l.id,
+      name: l.name,
+      address: l.address,
+      mapUrl: l.mapUrl,
+    })) || [];
   }
 
   // Get active vinculos for the "agendar aula" form
@@ -249,7 +255,6 @@ export default async function PersonalAgendaPage({
                       <span className="font-medium text-brand-300">
                         {format(slot.startAt, "HH:mm")} – {format(slot.endAt, "HH:mm")}
                       </span>
-                      <span className="ml-3 text-slate-400">{slot.locationName}</span>
                     </div>
                   </div>
 
@@ -258,12 +263,6 @@ export default async function PersonalAgendaPage({
                     <form action={personalCreateBookingFormAction} className="flex flex-wrap items-center gap-2">
                       <input type="hidden" name="startAt" value={slot.startAt.toISOString()} />
                       <input type="hidden" name="endAt" value={slot.endAt.toISOString()} />
-                      <input type="hidden" name="locationId" value={slot.locationId} />
-                      <input type="hidden" name="locationName" value={slot.locationName} />
-                      <input type="hidden" name="locationAddress" value={slot.locationAddress} />
-                      {slot.locationMapUrl && (
-                        <input type="hidden" name="locationMapUrl" value={slot.locationMapUrl} />
-                      )}
                       <select
                         name="vinculoId"
                         required
@@ -273,6 +272,18 @@ export default async function PersonalAgendaPage({
                         {activeVinculos.map((v) => (
                           <option key={v.id} value={v.id}>
                             {v.student.name}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        name="locationId"
+                        required
+                        className="rounded-lg border border-surface-border bg-surface-card px-3 py-1.5 text-sm text-white"
+                      >
+                        <option value="">Local...</option>
+                        {personalLocations.map((loc) => (
+                          <option key={loc.id} value={loc.id}>
+                            {loc.name}
                           </option>
                         ))}
                       </select>

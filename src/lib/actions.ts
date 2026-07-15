@@ -1008,13 +1008,29 @@ export async function personalCreateBookingFormAction(formData: FormData): Promi
   const vinculoId = String(formData.get("vinculoId") || "");
   if (!vinculoId) return;
   const startAt = String(formData.get("startAt"));
+  const locationId = String(formData.get("locationId") || "");
+
+  // Resolve location data from the selected locationId
+  let locationName = String(formData.get("locationName") || "");
+  let locationAddress = String(formData.get("locationAddress") || "");
+  let locationMapUrl = String(formData.get("locationMapUrl") || "") || undefined;
+
+  if (locationId && (!locationName || !locationAddress)) {
+    const loc = await prisma.location.findUnique({ where: { id: locationId } });
+    if (loc) {
+      locationName = loc.name;
+      locationAddress = loc.address;
+      locationMapUrl = loc.mapUrl || undefined;
+    }
+  }
+
   const result = await personalCreateBookingAction(vinculoId, {
     startAt,
     endAt: String(formData.get("endAt")),
-    locationId: String(formData.get("locationId")),
-    locationName: String(formData.get("locationName")),
-    locationAddress: String(formData.get("locationAddress")),
-    locationMapUrl: String(formData.get("locationMapUrl") || "") || undefined,
+    locationId: locationId || "no-location",
+    locationName: locationName || "Local não informado",
+    locationAddress: locationAddress || "",
+    locationMapUrl,
   });
   if (result?.success && startAt) {
     redirect(bookingDateLink(new Date(startAt), "personal"));
@@ -1053,13 +1069,29 @@ export async function createBookingFormAction(formData: FormData): Promise<void>
   const vinculoId = String(formData.get("vinculoId") || "");
   if (!vinculoId) return;
   const startAt = String(formData.get("startAt"));
+  const locationId = String(formData.get("locationId") || "");
+
+  // Resolve location data from the selected locationId
+  let locationName = String(formData.get("locationName") || "");
+  let locationAddress = String(formData.get("locationAddress") || "");
+  let locationMapUrl = String(formData.get("locationMapUrl") || "") || undefined;
+
+  if (locationId && (!locationName || !locationAddress)) {
+    const loc = await prisma.location.findUnique({ where: { id: locationId } });
+    if (loc) {
+      locationName = loc.name;
+      locationAddress = loc.address;
+      locationMapUrl = loc.mapUrl || undefined;
+    }
+  }
+
   const result = await createBookingAction(vinculoId, {
     startAt,
     endAt: String(formData.get("endAt")),
-    locationId: String(formData.get("locationId")),
-    locationName: String(formData.get("locationName")),
-    locationAddress: String(formData.get("locationAddress")),
-    locationMapUrl: String(formData.get("locationMapUrl") || "") || undefined,
+    locationId: locationId || "no-location",
+    locationName: locationName || "Local não informado",
+    locationAddress: locationAddress || "",
+    locationMapUrl,
   });
   if (result?.success && startAt) {
     redirect(bookingDateLink(new Date(startAt), "aluno"));
@@ -1207,9 +1239,10 @@ export async function saveAvailabilityAction(formData: FormData): Promise<void> 
   if (!profile) return;
 
   const id = formData.get("id") as string | null;
+  const locationIdRaw = String(formData.get("locationId") || "");
   const data = {
     personalId: profile.id,
-    locationId: String(formData.get("locationId")),
+    locationId: locationIdRaw || null,
     dayOfWeek: Number(formData.get("dayOfWeek")),
     startTime: String(formData.get("startTime")),
     endTime: String(formData.get("endTime")),
@@ -1652,17 +1685,14 @@ export async function seedDefaultAvailabilityAction(_formData: FormData): Promis
 
   const profile = await prisma.personalProfile.findUnique({
     where: { userId: session.id },
-    include: { locations: true },
   });
-  if (!profile || profile.locations.length === 0) return;
+  if (!profile) return;
 
   // Check if already has rules
   const existing = await prisma.availabilityRule.count({
     where: { personalId: profile.id },
   });
   if (existing > 0) return;
-
-  const location = profile.locations[0]; // Use first location as default
 
   const DEFAULT_AVAILABILITY = [
     { dayOfWeek: 0, startTime: "08:00", endTime: "23:00", slotMinutes: 60 },
@@ -1677,7 +1707,7 @@ export async function seedDefaultAvailabilityAction(_formData: FormData): Promis
   await prisma.availabilityRule.createMany({
     data: DEFAULT_AVAILABILITY.map((rule) => ({
       personalId: profile.id,
-      locationId: location.id,
+      locationId: null,
       dayOfWeek: rule.dayOfWeek,
       startTime: rule.startTime,
       endTime: rule.endTime,

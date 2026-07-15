@@ -114,7 +114,7 @@ export default async function AlunoAgendarPage({
 
 
 
-  const slots = await getAvailableSlots(vinculo.personalId, 90);
+  const { slots, locations } = await getAvailableSlots(vinculo.personalId, 90);
 
   const datesWithSlots = [
 
@@ -137,14 +137,6 @@ export default async function AlunoAgendarPage({
           startAt: slot.startAt.toISOString(),
 
           endAt: slot.endAt.toISOString(),
-
-          locationId: slot.locationId,
-
-          locationName: slot.locationName,
-
-          locationAddress: slot.locationAddress,
-
-          locationMapUrl: slot.locationMapUrl,
 
         }))
 
@@ -240,6 +232,18 @@ export default async function AlunoAgendarPage({
 
               slots={daySlots}
 
+              locations={locations.map((l) => ({
+
+                id: l.id,
+
+                name: l.name,
+
+                address: l.address,
+
+                mapUrl: l.mapUrl,
+
+              }))}
+
             />
 
           ) : (
@@ -261,4 +265,3 @@ export default async function AlunoAgendarPage({
   );
 
 }
-

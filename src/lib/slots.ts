@@ -13,10 +13,6 @@ import {
 export type SlotCandidate = {
   startAt: Date;
   endAt: Date;
-  locationId: string;
-  locationName: string;
-  locationAddress: string;
-  locationMapUrl: string | null;
 };
 
 type AvailabilityInput = {
@@ -24,13 +20,10 @@ type AvailabilityInput = {
   startTime: string;
   endTime: string;
   slotMinutes: number;
-  locationId: string;
-  locationName: string;
-  locationAddress: string;
-  locationMapUrl: string | null;
+  locationId: string | null;
 };
 
-type OccupiedSlot = { startAt: Date; endAt: Date; locationId: string };
+type OccupiedSlot = { startAt: Date; endAt: Date };
 
 function parseTimeOnDate(base: Date, time: string) {
   const [h, m] = time.split(":").map(Number);
@@ -46,6 +39,10 @@ function rangesOverlap(
   return aStart < bEnd && bStart < aEnd;
 }
 
+/**
+ * Generate time slots from availability rules (no location binding).
+ * Location is chosen at booking time, not at availability definition.
+ */
 export function generateSlotsForRange(
   from: Date,
   days: number,
@@ -76,20 +73,14 @@ export function generateSlotsForRange(
         const blocked = blocks.some((b) =>
           rangesOverlap(cursor, slotEnd, b.startAt, b.endAt)
         );
-        const taken = occupied.some(
-          (o) =>
-            o.locationId === rule.locationId &&
-            rangesOverlap(cursor, slotEnd, o.startAt, o.endAt)
+        const taken = occupied.some((o) =>
+          rangesOverlap(cursor, slotEnd, o.startAt, o.endAt)
         );
 
         if (!blocked && !taken) {
           slots.push({
             startAt: new Date(cursor),
             endAt: new Date(slotEnd),
-            locationId: rule.locationId,
-            locationName: rule.locationName,
-            locationAddress: rule.locationAddress,
-            locationMapUrl: rule.locationMapUrl,
           });
         }
         cursor = slotEnd;

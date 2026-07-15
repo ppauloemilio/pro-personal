@@ -5,7 +5,6 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   updatePersonalProfileAction,
-  saveAvailabilityAction,
   requestCategoryFormAction,
   seedDefaultAvailabilityAction,
 } from "@/lib/actions";
@@ -14,8 +13,6 @@ import { LocationForm } from "@/components/personal/location-form";
 import { AvailabilityList } from "@/components/personal/availability-list";
 import { AvatarUpload } from "@/components/personal/avatar-upload";
 import { PortfolioManager } from "@/components/personal/portfolio-manager";
-
-const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 export default async function PersonalPerfilPage({
   searchParams,
@@ -188,34 +185,27 @@ export default async function PersonalPerfilPage({
       <Card>
         <CardTitle>Disponibilidade semanal</CardTitle>
         <p className="mt-1 text-sm text-slate-400">
-          Padrão: Todos os dias 8h–23h. Você pode editar e adicionar horários.
+          Cadastre os dias e horários que você atende. O local é escolhido na hora do agendamento.
         </p>
         <div className="mt-4">
           <AvailabilityList
             rules={availabilityRules.map((rule) => ({
               id: rule.id,
               locationId: rule.locationId,
-              locationName: rule.location.name,
               dayOfWeek: rule.dayOfWeek,
               startTime: rule.startTime,
               endTime: rule.endTime,
               slotMinutes: rule.slotMinutes,
             }))}
-            locations={profile?.locations.map((l) => ({ id: l.id, name: l.name })) || []}
             canWrite={access.canWrite}
           />
         </div>
-        {access.canWrite && profile && profile.locations.length > 0 && availabilityRules.length === 0 && (
+        {access.canWrite && profile && availabilityRules.length === 0 && (
           <form action={seedDefaultAvailabilityAction} className="mt-4">
             <Button type="submit" variant="secondary">
               Usar disponibilidade padrão (Todos os dias 8h–23h)
             </Button>
           </form>
-        )}
-        {access.canWrite && profile && profile.locations.length === 0 && (
-          <p className="mt-4 text-sm text-slate-400">
-            Cadastre um local antes de definir disponibilidade.
-          </p>
         )}
       </Card>
     </div>

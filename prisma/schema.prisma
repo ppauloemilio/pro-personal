@@ -106,12 +106,12 @@ model Location {
 model AvailabilityRule {
   id          String   @id @default(cuid())
   personalId  String
-  locationId  String
+  locationId  String?
   dayOfWeek   Int
   startTime   String
   endTime     String
   slotMinutes Int      @default(60)
-  location    Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  location    Location? @relation(fields: [locationId], references: [id], onDelete: Cascade)
 }
 
 model ScheduleBlock {

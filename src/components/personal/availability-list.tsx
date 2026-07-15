@@ -5,35 +5,28 @@ import { Button } from "@/components/ui/button";
 import {
   saveAvailabilityAction,
   deleteAvailabilityFormAction,
-} from "@/lib/actions";export type AvailabilityItem = {
+} from "@/lib/actions";
+
+export type AvailabilityItem = {
   id: string;
-  locationId: string;
-  locationName: string;
+  locationId: string | null;
+  locationName?: string;
   dayOfWeek: number;
   startTime: string;
   endTime: string;
   slotMinutes: number;
 };
 
-type LocationOption = {
-  id: string;
-  name: string;
-};
-
 const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 export function AvailabilityList({
   rules,
-  locations,
   canWrite,
 }: {
   rules: AvailabilityItem[];
-  locations: LocationOption[];
   canWrite: boolean;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
-
-  const hasWeekdayRules = rules.some((r) => r.dayOfWeek >= 1 && r.dayOfWeek <= 5);
 
   if (rules.length === 0) {
     return <p className="text-sm text-slate-400">Nenhuma disponibilidade cadastrada.</p>;
@@ -51,13 +44,6 @@ export function AvailabilityList({
           >
             <input type="hidden" name="id" value={rule.id} />
             <div className="grid gap-3 sm:grid-cols-2">
-              <select name="locationId" required defaultValue={rule.locationId} className="w-full">
-                {locations.map((location) => (
-                  <option key={location.id} value={location.id}>
-                    {location.name}
-                  </option>
-                ))}
-              </select>
               <select name="dayOfWeek" required defaultValue={rule.dayOfWeek} className="w-full">
                 {DAYS.map((day, index) => (
                   <option key={day} value={index}>
@@ -111,8 +97,6 @@ export function AvailabilityList({
               {" · "}
               {rule.startTime}–{rule.endTime}
               {" · "}
-              {rule.locationName}
-              {" · "}
               slots de {rule.slotMinutes}min
               {isWeekend && (
                 <span className="ml-2 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] uppercase text-amber-300">
@@ -143,20 +127,13 @@ export function AvailabilityList({
       })}
 
       {/* Add new availability */}
-      {canWrite && locations.length > 0 && (
+      {canWrite && (
         <form
           action={saveAvailabilityAction}
           className="rounded-xl border border-dashed border-brand-500/30 bg-brand-500/5 p-4"
         >
           <p className="mb-3 text-sm font-medium text-brand-300">Adicionar disponibilidade</p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <select name="locationId" required className="w-full">
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.name}
-                </option>
-              ))}
-            </select>
             <select name="dayOfWeek" required className="w-full">
               {DAYS.map((day, index) => (
                 <option key={day} value={index}>

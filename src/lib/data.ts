@@ -78,11 +78,10 @@ export async function getAvailableSlots(personalUserId: string, days = 14) {
       blocks: true,
     },
   });
-  if (!profile) return [];
+  if (!profile) return { slots: [], locations: [] };
 
   const rules = await prisma.availabilityRule.findMany({
     where: { personalId: profile.id },
-    include: { location: true },
   });
 
   const bookings = await prisma.booking.findMany({
@@ -99,24 +98,29 @@ export async function getAvailableSlots(personalUserId: string, days = 14) {
     endTime: r.endTime,
     slotMinutes: r.slotMinutes,
     locationId: r.locationId,
-    locationName: r.location.name,
-    locationAddress: r.location.address,
-    locationMapUrl: r.location.mapUrl,
   }));
 
   const occupied = bookings.map((b) => ({
     startAt: b.startAt,
     endAt: b.endAt,
-    locationId: b.locationId,
   }));
 
-  return generateSlotsForRange(
+  const slots = generateSlotsForRange(
     new Date(),
     days,
     availability,
     occupied,
     profile.blocks.map((b) => ({ startAt: b.startAt, endAt: b.endAt }))
   );
+
+  const locations = profile.locations.map((l) => ({
+    id: l.id,
+    name: l.name,
+    address: l.address,
+    mapUrl: l.mapUrl,
+  }));
+
+  return { slots, locations };
 }
 
 export async function getDiscoveryPersonals(filters?: {
