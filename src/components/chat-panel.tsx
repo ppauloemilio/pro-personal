@@ -20,6 +20,80 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+/* ─── Image compression helper ─── */
+const MAX_IMAGE_SIZE_MB = 5;
+const MAX_IMAGE_DIMENSION = 1920;
+
+function compressImage(file: File): Promise<File> {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith("image/")) {
+      resolve(file);
+      return;
+    }
+
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+
+      let { width, height } = img;
+
+      // Scale down if larger than max dimension
+      if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
+        const ratio = Math.min(MAX_IMAGE_DIMENSION / width, MAX_IMAGE_DIMENSION / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Try progressively lower quality until under size limit
+      const tryQuality = (quality: number): void => {
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              resolve(file);
+              return;
+            }
+
+            if (blob.size <= MAX_IMAGE_SIZE_MB * 1024 * 1024 || quality <= 0.1) {
+              const compressed = new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), {
+                type: "image/jpeg",
+                lastModified: Date.now(),
+              });
+              resolve(compressed);
+            } else {
+              tryQuality(quality - 0.1);
+            }
+          },
+          "image/jpeg",
+          quality
+        );
+      };
+
+      tryQuality(0.85);
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file);
+    };
+
+    img.src = url;
+  });
+}
+
 type Message = {
   id: string;
   content: string;
@@ -172,8 +246,11 @@ export function ChatPanel({
     setSending(true);
     setErrorMsg(null);
     try {
+      // Compress images before upload
+      const processedFile = type === "IMAGE" ? await compressImage(file) : file;
+
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", processedFile);
       const up = await uploadFileAction(fd);
       if (up.error) {
         setErrorMsg(up.error);
